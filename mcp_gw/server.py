@@ -129,4 +129,4 @@ async def delete_memory(
 
 
 if __name__ == "__main__":  # pragma: no cover - manual entrypoint
-    app.run()
+    app.run(transport="sse")

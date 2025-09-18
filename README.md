@@ -84,7 +84,7 @@ The FastMCP server exposes four tools over SSE (Claude Desktop, Cursor, etc.):
 - `update_memory(memory_id, org_id, agent_id, text?, tags?, scope?, ttl_days?, deleted?)`
 - `delete_memory(memory_id, org_id, agent_id, hard?)`
 
-Launch with `uv run python -m mcp_gw.server` and register the local server inside your MCP-compatible client.
+Launch with `uv run python -m mcp_gw.server` and register the local server inside your MCP-compatible client. The server binds to `0.0.0.0:8050` and exposes an SSE endpoint at `/sse` (keep-alive pings every 15 s).
 
 ## Docker Compose Stack
 

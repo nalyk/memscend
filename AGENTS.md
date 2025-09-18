@@ -7,7 +7,7 @@
 
 ## Core Assets & Responsibilities
 - `core/services.py` – orchestrates add/search/update/delete, resolves tenant overrides, manages Qdrant repositories. Touch with extreme care; preserve dedupe + time-decay logic.
-- `core/clients/` – `openrouter.py` (LLM normalization), `tei.py` (embeddings). Respect retry/backoff semantics.
+- `core/clients/` – `openrouter.py` (LLM normalization), `tei.py` (embeddings). Respect retry/backoff semantics; MCP runs with `transport="sse"` and serves `/sse`.
 - TEI client auto-falls back to deterministic embeddings when TEI is unreachable; OpenRouter client returns raw snippets on failure but keep normalization enabled when keys work.
 - `core/storage/qdrant_repository.py` – Qdrant CRUD layer; ensure payloads include `text`, `dedupe_hash`, timestamps.
 - `core/security.py` – shared-secret/JWT validation and tenancy reconciliation.

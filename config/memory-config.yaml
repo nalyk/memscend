@@ -1,0 +1,28 @@
+environment: development
+services:
+  openrouter_api_key: "changeme"
+  openrouter_base_url: "https://openrouter.ai/api/v1"
+  tei_base_url: "http://tei-embed:3000"
+  qdrant_url: "http://qdrant:6333"
+  qdrant_collection: "memories"
+core:
+  write:
+    enabled_scopes: ["prefs", "facts", "persona", "constraints"]
+    min_chars: 12
+    deduplicate: true
+    normalize_with_llm: true
+    max_batch: 32
+  retrieval:
+    top_k: 6
+    ef_search: 64
+    include_text: true
+  collection:
+    name: "memories"
+    vector_size: 768
+    distance: "Cosine"
+    on_disk_payload: true
+  organisations: {}
+security:
+  enforce_headers: true
+  shared_secrets:
+    default: "dev-secret-token"

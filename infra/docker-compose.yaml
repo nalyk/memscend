@@ -1,0 +1,67 @@
+version: "3.9"
+
+services:
+  tei-embed:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.6
+    environment:
+      MODEL_ID: google/embeddinggemma-300m
+      HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN}
+    ports:
+      - "3000:80"
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    environment:
+      QDRANT__STORAGE__ON_DISK_PAYLOAD: "true"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  http-gw:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    command: ["uvicorn", "http_gw.app:app", "--host", "0.0.0.0", "--port", "8080"]
+    environment:
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      TEI_BASE_URL: http://tei-embed:80
+      QDRANT_URL: http://qdrant:6333
+      MEMORY_SHARED_SECRET: ${MEMORY_SHARED_SECRET:-dev-secret-token}
+    depends_on:
+      - tei-embed
+      - qdrant
+    ports:
+      - "8080:8080"
+
+  mcp-gw:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+    command: ["python", "-m", "mcp_gw.server"]
+    environment:
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      TEI_BASE_URL: http://tei-embed:80
+      QDRANT_URL: http://qdrant:6333
+      MEMORY_SHARED_SECRET: ${MEMORY_SHARED_SECRET:-dev-secret-token}
+    depends_on:
+      - tei-embed
+      - qdrant
+    ports:
+      - "8050:8050"
+
+  nginx:
+    image: nginx:1.27
+    profiles:
+      - bundled-nginx
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - http-gw
+      - mcp-gw
+    ports:
+      - "80:80"
+
+volumes:
+  qdrant_data:

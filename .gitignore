@@ -1,0 +1,42 @@
+__pycache__/
+*.py[cod]
+*.so
+*.pyd
+
+# Python environments
+.venv/
+venv/
+.env
+.env.*
+.uv/
+
+# Build outputs
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Tool caches
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Editor/IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS cruft
+.DS_Store
+Thumbs.db
+
+# Project data
+.qdrant/
+infra/nginx/certs/
+
+# Generated docs or logs
+logs/

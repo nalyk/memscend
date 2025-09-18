@@ -1,19 +1,75 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
-Keep domain logic inside `core/`, which wraps OpenRouter, TEI, and Qdrant integrations. HTTP adapters live in `http_gw/` (FastAPI REST + streaming) and MCP tooling in `mcp_gw/`. Container and deployment assets belong in `infra/` (Compose, optional bundled Nginx, deployment scripts). Reference material stays in `docs/`. Add new modules only when they serve a tenant-aware memory capability; colocate tests alongside the code they cover.
+## Mission Profile
+- Codename: **Memscend** – multi-tenant memory ingestion + retrieval via OpenRouter ➜ TEI ➜ Qdrant.
+- Output surfaces: HTTP REST/SSE gateway (`http_gw/`) and MCP tool server (`mcp_gw/`).
+- Hard guardrails: enforce `org_id` + `agent_id` on every request, keep embedding dimensions consistent (default 768), no observability stack yet.
 
-## Build, Test, and Development Commands
-Use `docker compose -f infra/docker-compose.yaml up --build tei-embed qdrant` to start local dependencies. Run the core service with `uv run python -m core.app` and the HTTP gateway with `uv run fastapi dev http_gw/app.py`. Execute the MCP server via `uv run python -m mcp_gw.server`. Smoke-test everything through `uv run pytest` before opening a PR. Prefer `make` wrappers only if they thinly proxy those commands.
+## Core Assets & Responsibilities
+- `core/services.py` – orchestrates add/search/update/delete, resolves tenant overrides, manages Qdrant repositories. Touch with extreme care; preserve dedupe + time-decay logic.
+- `core/clients/` – `openrouter.py` (LLM normalization), `tei.py` (embeddings). Respect retry/backoff semantics.
+- `core/storage/qdrant_repository.py` – Qdrant CRUD layer; ensure payloads include `text`, `dedupe_hash`, timestamps.
+- `core/security.py` – shared-secret/JWT validation and tenancy reconciliation.
+- `http_gw/app.py` – FastAPI routes mapping HTTP verbs to `MemoryCore`; handles SSE/NDJSON streaming.
+- `mcp_gw/server.py` – FastMCP tool definitions mirroring HTTP behaviors.
+- `infra/docker-compose.yaml` – Compose stack (TEI, Qdrant, gateways, optional `bundled-nginx` profile). Treat Nginx as local-only.
+- `config/memory-config.yaml` – Default runtime config; hierarchy `global → org → agent`.
 
-## Coding Style & Naming Conventions
-Python code targets 3.12, uses 4-space indentation, type hints, and docstrings on public functions. Follow the hexagonal boundary: orchestrators in `core/services.py`, repositories in `core/storage/`, and DTOs under `core/models.py`. Run `ruff check --fix` and `ruff format` before commits. Config files adopt lowercase-with-dashes (e.g., `memory-config.yaml`); environment variables use `UPPER_SNAKE_CASE`.
+## Command Matrix
+- Install deps: `uv sync`
+- Format/lint: `uv run ruff format` + `uv run ruff check --fix`
+- Unit & integration tests: `uv run pytest`
+- Spin up deps only: `docker compose -f infra/docker-compose.yaml up --build tei-embed qdrant`
+- Full local stack sans nginx: `docker compose -f infra/docker-compose.yaml up --build tei-embed qdrant http-gw mcp-gw`
+- Optional proxy: `docker compose -f infra/docker-compose.yaml --profile bundled-nginx up nginx`
+- Core bootstrap (creates collection): `uv run python scripts/bootstrap_qdrant.py`
 
-## Testing Guidelines
-Structure tests under `tests/unit/` and `tests/integration/`; name files `test_*.py`. Use `pytest` fixtures to spin up TEI and Qdrant mocks, and mark network-dependent suites with `@pytest.mark.integration`. Target ≥80% coverage on core services and validate tenancy isolation scenarios. Run `uv run pytest --maxfail=1` locally and ensure GitHub workflows stay green.
+## Configuration & Secrets
+- `.env` supplies `OPENROUTER_API_KEY`, `HUGGING_FACE_HUB_TOKEN`, `MEMORY_SHARED_SECRET`.
+- Environment overrides: `TEI_BASE_URL`, `QDRANT_URL`, `OPENROUTER_BASE_URL`, `MEMORY_CONFIG_FILE`.
+- Tenancy config lives under `core.organisations` in YAML; agent overrides inherit org values.
+- Embedding dims allowed: `{128, 256, 512, 768}`. Changing dims requires new Qdrant collection.
 
-## Commit & Pull Request Guidelines
-Write commits in imperative mood with a concise scope tag, e.g., `core: enforce vector size guard`. Group related changes into a single commit when practical. Pull requests must describe intent, list validation steps (commands, datasets), and link the relevant task sheet item. Add screenshots or logs when touching observability, and request review from domain owners of the affected module.
+## HTTP Contract Cheatsheet
+- Auth: `Authorization: Bearer <shared secret>` (or JWT), headers `X-Org-Id`, `X-Agent-Id` mandatory unless disabled.
+- `POST /api/v1/mem/add` body: `user_id`, `text` or `messages[]`, optional `scope/tags/idempotency_key/ttl_days`.
+- `GET /api/v1/mem/search` query: `q`, optional `user_id/k/scope/tags[]`.
+- Streaming variants: `/search/ndjson` (NDJSON) and `/search/stream` (SSE, ping=20s).
+- `PATCH /api/v1/mem/{id}` accepts partial updates (`text`, `tags`, `scope`, `ttl_days`, `deleted`).
+- `DELETE /api/v1/mem/{id}` with `?hard=true` for physical delete; defaults to soft delete.
 
-## Security & Configuration Tips
-Never commit API keys or Hugging Face tokens; load them via `.env` files ignored by Git. Validate `X-Org-Id`/`X-Agent-Id` headers at every entry point and include regression tests when adding new filters. When editing `infra/`, keep TLS defaults strict and document any change to rate limiting or retention in `docs/runbook.md`; enable the bundled Nginx profile only for local tests because production VPS deployments should rely on the host Nginx config.
+## MCP Tooling
+- Tools: `add_memories`, `search_memory`, `update_memory`, `delete_memory` (call signatures mirror HTTP).
+- Startup/shutdown hooks call `MemoryCore.startup/shutdown`; avoid blocking operations inside tool handlers.
+- Register server via MCP client config pointing at `http://127.0.0.1:8050`.
+
+## Testing Doctrine
+- Pytest structure: `tests/unit/` (isolated with stubs), `tests/integration/` (FastAPI TestClient + patched core).
+- Target coverage ≥80% on `core/`. Add tests for tenancy isolation, dedupe, time decay when modifying related logic.
+- Mock external clients (`OpenRouterClient`, `TEIClient`, `QdrantRepository`) in unit tests; avoid real network IO.
+
+## Deployment Playbook (VPS)
+1. `uv sync`
+2. `docker compose -f infra/docker-compose.yaml up -d tei-embed qdrant`
+3. `uvicorn http_gw.app:app --host 0.0.0.0 --port 8080`
+4. `python -m mcp_gw.server --host 0.0.0.0 --port 8050`
+5. Host-level Nginx proxies `/api/` ➜ 8080, `/mcp/` ➜ 8050 (TLS enforced externally).
+6. Keep `bundled-nginx` disabled in production.
+
+## High-Risk Areas & Invariants
+- Never loosen tenancy checks (`core/security.py`, `http_gw/app.py`, `mcp_gw/server.py`).
+- Preserve dedupe hash computation (`core/utils.py`) and ensure upserts always include `dedupe_hash` in payload.
+- Do not modify TEI/OpenRouter retry policies without updating failure modes in docs/runbook.
+- Any change to vector size or collection names must propagate to `config`, compose env vars, and migration scripts.
+- Observability intentionally absent; avoid introducing logging dependencies unless requirement changes.
+
+## Reference Docs
+- Product context: `docs/prd.md`
+- Architecture blueprint: `docs/blueprint.md`
+- Task sheet & milestones: `docs/task_sheet.md`
+- Runbook stub: `docs/runbook.md` (extend when observability lands)
+
+## Interaction Etiquette
+- Prefer `apply_patch` for edits; maintain ASCII encoding.
+- Respect existing TODO: observability deferred (“fuck observability for now”).
+- When adding modules, colocate tests in matching `tests/...` path and update this guide.

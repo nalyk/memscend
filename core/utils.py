@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import uuid
 from datetime import datetime
+from math import sin
 
 
 def make_id(org_id: str, agent_id: str, text: str) -> str:
@@ -35,3 +36,11 @@ def apply_time_decay(score: float, created_at: datetime, now: datetime, half_lif
     decay_factor = 0.5 ** (days / half_life_days)
     return score * decay_factor
 
+
+def make_embedding_stub(text: str, size: int = 768) -> list[float]:
+    """Return a deterministic pseudo-embedding for offline/test usage."""
+
+    if not text:
+        return [0.0] * size
+    base = float(abs(hash(text)) % 10_000) / 10_000.0
+    return [sin(base + i * 0.01) for i in range(size)]

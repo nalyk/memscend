@@ -83,7 +83,7 @@ async def add_memories(
             {
                 "id": item.id,
                 "text": item.text,
-                "payload": item.payload.model_dump(),
+                "payload": item.payload.model_dump(mode="json"),
             }
             for item in items
         ]
@@ -111,7 +111,7 @@ async def search_memories(
                 "id": hit.id,
                 "score": hit.score,
                 "text": hit.text,
-                "payload": hit.payload.model_dump(),
+                "payload": hit.payload.model_dump(mode="json"),
             }
             for hit in hits
         ]
@@ -132,7 +132,7 @@ async def _search_generator(
             "id": hit.id,
             "score": hit.score,
             "text": hit.text,
-            "payload": hit.payload.model_dump(),
+            "payload": hit.payload.model_dump(mode="json"),
         }
     yield {"type": "done"}
 
@@ -152,7 +152,11 @@ async def search_memories_ndjson(
 
     async def ndjson_stream() -> AsyncGenerator[bytes, None]:
         async for event in _search_generator(core, org_id, agent_id, search_request):
-            yield orjson.dumps(event) + b"\n"
+            serialised = {
+                **event,
+                "payload": event.get("payload"),
+            }
+            yield orjson.dumps(serialised) + b"\n"
 
     return StreamingResponse(ndjson_stream(), media_type="application/x-ndjson")
 
@@ -193,7 +197,7 @@ async def update_memory(
         content={
             "id": record.id,
             "text": record.text,
-            "payload": record.payload.model_dump(),
+            "payload": record.payload.model_dump(mode="json"),
         }
     )
 

@@ -22,18 +22,18 @@ def _load_file(path: Path) -> Dict[str, Any]:
         return yaml.safe_load(handle) or {}
 
 
-def _maybe_set(target: Dict[str, Any], key: str, value: Any) -> None:
-    if value is not None and key not in target:
+def _apply_env(target: Dict[str, Any], key: str, value: Any) -> None:
+    if value is not None and value != "":
         target[key] = value
 
 
 def _inject_env_overrides(raw: Dict[str, Any]) -> Dict[str, Any]:
     services = raw.setdefault("services", {})
-    _maybe_set(services, "openrouter_api_key", os.getenv("OPENROUTER_API_KEY"))
-    _maybe_set(services, "qdrant_api_key", os.getenv("QDRANT_API_KEY"))
-    _maybe_set(services, "tei_base_url", os.getenv("TEI_BASE_URL"))
-    _maybe_set(services, "openrouter_base_url", os.getenv("OPENROUTER_BASE_URL"))
-    _maybe_set(services, "qdrant_url", os.getenv("QDRANT_URL"))
+    _apply_env(services, "openrouter_api_key", os.getenv("OPENROUTER_API_KEY"))
+    _apply_env(services, "qdrant_api_key", os.getenv("QDRANT_API_KEY"))
+    _apply_env(services, "tei_base_url", os.getenv("TEI_BASE_URL"))
+    _apply_env(services, "openrouter_base_url", os.getenv("OPENROUTER_BASE_URL"))
+    _apply_env(services, "qdrant_url", os.getenv("QDRANT_URL"))
 
     security = raw.setdefault("security", {})
     shared_secret = os.getenv("MEMORY_SHARED_SECRET")
@@ -61,4 +61,3 @@ def load_settings(config_path: str | os.PathLike[str] | None = None) -> Settings
 
 
 SettingsType = Settings
-

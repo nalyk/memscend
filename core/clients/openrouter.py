@@ -47,21 +47,28 @@ class OpenRouterClient:
             "temperature": 0.2,
         }
 
-        headers = {"Authorization": f"Bearer {self._api_key}"}
+        headers = {
+            "Authorization": f"Bearer {self._api_key}",
+            "HTTP-Referer": "https://github.com/nalyk/memscend",
+            "X-Title": "Memscend Memory Service",
+        }
 
-        async for attempt in AsyncRetrying(  # type: ignore[no-untyped-call]
-            stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.5, max=4)
-        ):
-            with attempt:
-                response = await self._client.post(
-                    f"{self._base_url}/chat/completions",
-                    json=body,
-                    headers=headers,
-                )
-                response.raise_for_status()
-                data = response.json()
-                content = data["choices"][0]["message"]["content"].strip()
-                return [line.strip("- ") for line in content.splitlines() if line.strip()]
+        try:
+            async for attempt in AsyncRetrying(  # type: ignore[no-untyped-call]
+                stop=stop_after_attempt(3), wait=wait_exponential(multiplier=0.5, max=4)
+            ):
+                with attempt:
+                    response = await self._client.post(
+                        f"{self._base_url}/chat/completions",
+                        json=body,
+                        headers=headers,
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                    content = data["choices"][0]["message"]["content"].strip()
+                    return [line.strip("- ") for line in content.splitlines() if line.strip()]
+        except (httpx.HTTPError, RetryError):
+            pass
 
         return payload
 

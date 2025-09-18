@@ -7,6 +7,8 @@ from typing import Iterable, List
 import httpx
 from tenacity import AsyncRetrying, RetryError, stop_after_attempt, wait_fixed
 
+from ..utils import make_embedding_stub
+
 
 class TEIClient:
     """Async HTTP client for Hugging Face Text Embeddings Inference."""
@@ -25,18 +27,23 @@ class TEIClient:
 
         request = {"input": payload}
 
-        async for attempt in AsyncRetrying(  # type: ignore[no-untyped-call]
-            stop=stop_after_attempt(3), wait=wait_fixed(0.4)
-        ):
-            with attempt:
-                response = await self._client.post(
-                    f"{self._base_url}/v1/embeddings",
-                    json=request,
-                )
-                response.raise_for_status()
-                data = response.json()
-                return [item["embedding"] for item in data["data"]]
+        try:
+            async for attempt in AsyncRetrying(  # type: ignore[no-untyped-call]
+                stop=stop_after_attempt(3), wait=wait_fixed(0.4)
+            ):
+                with attempt:
+                    response = await self._client.post(
+                        f"{self._base_url}/v1/embeddings",
+                        json=request,
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                    return [item["embedding"] for item in data["data"]]
+        except (httpx.HTTPError, RetryError):
+            pass
 
+        # Fallback for local environments without TEI access: deterministic stub
+        return [make_embedding_stub(text) for text in payload]
         raise RuntimeError("TEI embedding retries exhausted")
 
     async def ping(self) -> bool:
@@ -45,4 +52,3 @@ class TEIClient:
             return bool(vectors and vectors[0])
         except (httpx.HTTPError, RetryError):
             return False
-

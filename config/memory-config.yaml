@@ -21,8 +21,9 @@ core:
     vector_size: 768
     distance: "Cosine"
     on_disk_payload: true
+  model: "openrouter/sonoma-sky-alpha"
   organisations: {}
 security:
   enforce_headers: true
   shared_secrets:
-    default: "dev-secret-token"
+    demo-org: "dev-secret-token"

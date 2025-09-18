@@ -40,6 +40,16 @@ dev = [
 [tool.uv]
 package = true
 
+[tool.setuptools.packages.find]
+include = [
+    "core",
+    "core.*",
+    "http_gw",
+    "http_gw.*",
+    "mcp_gw",
+    "mcp_gw.*",
+]
+
 [tool.ruff]
 line-length = 100
 select = ["E", "F", "I", "B", "UP", "N", "ANN"]

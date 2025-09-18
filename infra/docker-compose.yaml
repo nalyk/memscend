@@ -2,10 +2,12 @@ version: "3.9"
 
 services:
   tei-embed:
-    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.6
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.8
     environment:
       MODEL_ID: google/embeddinggemma-300m
-      HUGGING_FACE_HUB_TOKEN: ${HUGGING_FACE_HUB_TOKEN}
+      HF_TOKEN: ${HUGGING_FACE_HUB_TOKEN}
+    env_file:
+      - ../.env
     ports:
       - "3000:80"
 
@@ -25,10 +27,10 @@ services:
       dockerfile: infra/Dockerfile
     command: ["uvicorn", "http_gw.app:app", "--host", "0.0.0.0", "--port", "8080"]
     environment:
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
       TEI_BASE_URL: http://tei-embed:80
       QDRANT_URL: http://qdrant:6333
-      MEMORY_SHARED_SECRET: ${MEMORY_SHARED_SECRET:-dev-secret-token}
+    env_file:
+      - ../.env
     depends_on:
       - tei-embed
       - qdrant
@@ -41,10 +43,10 @@ services:
       dockerfile: infra/Dockerfile
     command: ["python", "-m", "mcp_gw.server"]
     environment:
-      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
       TEI_BASE_URL: http://tei-embed:80
       QDRANT_URL: http://qdrant:6333
-      MEMORY_SHARED_SECRET: ${MEMORY_SHARED_SECRET:-dev-secret-token}
+    env_file:
+      - ../.env
     depends_on:
       - tei-embed
       - qdrant

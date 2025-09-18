@@ -38,7 +38,7 @@ class MemoryCore:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
         services = settings.services
-        self._tei = TEIClient(services.tei_base_url)
+        self._tei = TEIClient(str(services.tei_base_url))
         self._llm = OpenRouterClient(
             api_key=services.openrouter_api_key,
             base_url=str(services.openrouter_base_url),

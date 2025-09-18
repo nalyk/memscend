@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
 
 from mcp.server.fastmcp import FastMCP
@@ -10,19 +11,20 @@ from core import MemoryCore, load_settings
 from core.models import MemoryAddRequest, SearchRequest, UpdateMemoryRequest
 from core.exceptions import NotFoundError
 
-app = FastMCP("memory")
 _settings = load_settings()
 _core = MemoryCore(_settings)
 
 
-@app.on_startup
-async def _startup() -> None:
+@asynccontextmanager
+async def _lifespan(app: FastMCP):  # type: ignore[type-arg]
     await _core.startup()
+    try:
+        yield
+    finally:
+        await _core.shutdown()
 
 
-@app.on_shutdown
-async def _shutdown() -> None:
-    await _core.shutdown()
+app = FastMCP("memory", host="0.0.0.0", port=8050, lifespan=_lifespan)
 
 
 @app.tool()
@@ -48,7 +50,7 @@ async def add_memories(
             {
                 "id": item.id,
                 "text": item.text,
-                "payload": item.payload.model_dump(),
+                "payload": item.payload.model_dump(mode="json"),
             }
             for item in items
         ]
@@ -79,7 +81,7 @@ async def search_memory(
                 "id": hit.id,
                 "score": hit.score,
                 "text": hit.text,
-                "payload": hit.payload.model_dump(),
+                "payload": hit.payload.model_dump(mode="json"),
             }
             for hit in hits
         ]
@@ -108,7 +110,7 @@ async def update_memory(
     return {
         "id": record.id,
         "text": record.text,
-        "payload": record.payload.model_dump(),
+        "payload": record.payload.model_dump(mode="json"),
     }
 
 
@@ -127,5 +129,4 @@ async def delete_memory(
 
 
 if __name__ == "__main__":  # pragma: no cover - manual entrypoint
-    app.run(host="0.0.0.0", port=8050)
-
+    app.run()

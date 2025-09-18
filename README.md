@@ -33,14 +33,18 @@ Memscend is a multi-tenant memory service that extracts durable memories with a 
 ## Configuration
 
 1. Copy `.env.example` to `.env` and populate:
-   - `OPENROUTER_API_KEY`
-   - `HUGGING_FACE_HUB_TOKEN`
-   - `MEMORY_SHARED_SECRET` (used by gateways for shared-secret auth)
-2. Inspect `config/memory-config.yaml`:
+- `OPENROUTER_API_KEY`
+- `HUGGING_FACE_HUB_TOKEN`
+- `MEMORY_SHARED_SECRET` (used by gateways for shared-secret auth)
+2. Visit the model pages and accept license terms:
+   - <https://huggingface.co/google/embeddinggemma-300m>
+   - <https://openrouter.ai/models/openrouter/sonoma-sky-alpha>
+3. Inspect `config/memory-config.yaml`:
    - Global write/retrieval policies (`core.write`, `core.retrieval`)
    - Default collection settings (vector size 768, cosine metric)
    - Tenant overrides (`core.organisations[<org_id>]` → per-agent overrides)
-3. Environment overrides: set `TEI_BASE_URL`, `QDRANT_URL`, `OPENROUTER_BASE_URL`, etc. when services are not on defaults.
+   - `core.write.normalize_with_llm` defaults to `false` so the service runs without OpenRouter; set to `true` when a valid key is configured. This repo ships with it enabled using `openrouter/sonoma-sky-alpha`.
+4. Environment overrides: set `TEI_BASE_URL`, `QDRANT_URL`, `OPENROUTER_BASE_URL`, etc. when services are not on defaults.
 
 ## Local Development Workflow
 
@@ -48,8 +52,8 @@ Memscend is a multi-tenant memory service that extracts durable memories with a 
 # Install dependencies
 uv sync
 
-# Bring up embeddings + vector DB
-docker compose -f infra/docker-compose.yaml up --build tei-embed qdrant
+# Bring up embeddings + vector DB (requires .env)
+docker compose -f infra/docker-compose.yaml --env-file .env up --build tei-embed qdrant
 
 # Run the HTTP gateway (REST/SSE)
 uv run fastapi dev http_gw/app.py
@@ -58,7 +62,7 @@ uv run fastapi dev http_gw/app.py
 uv run python -m mcp_gw.server
 ```
 
-Once the services are live, authenticate with `Authorization: Bearer <MEMORY_SHARED_SECRET>` and headers `X-Org-Id` / `X-Agent-Id` to interact.
+Once the services are live, authenticate with `Authorization: Bearer <MEMORY_SHARED_SECRET>` and headers `X-Org-Id` / `X-Agent-Id` to interact. Without TEI or OpenRouter credentials the service falls back to deterministic stub embeddings and raw text (for testing only).
 
 ## API Overview
 
@@ -95,13 +99,13 @@ The compose bundle provides:
 Run everything (without nginx) for local testing:
 
 ```bash
-docker compose -f infra/docker-compose.yaml up --build tei-embed qdrant http-gw mcp-gw
+docker compose -f infra/docker-compose.yaml --env-file .env up --build tei-embed qdrant http-gw mcp-gw
 ```
 
 To include the bundled proxy:
 
 ```bash
-docker compose -f infra/docker-compose.yaml --profile bundled-nginx up nginx
+docker compose -f infra/docker-compose.yaml --env-file .env --profile bundled-nginx up nginx
 ```
 
 ## Production Reverse Proxy
@@ -143,9 +147,10 @@ server {
 ## Troubleshooting
 
 - **Missing dependencies:** install `pip install -e .[dev]` or use `uv sync` to ensure `pydantic>=2` and `qdrant-client` are available.
-- **TEI cold start:** first request may take up to 30s; hitting `/v1/embeddings` on boot can warm it up.
+- **TEI cold start / 401:** the `tei-embed` container (tag `cpu-1.8`) needs `HF_TOKEN`; if you see 401s, confirm the token has accepted EmbeddingGemma. Batch size is limited to 4 on CPU; the service adjusts automatically.
 - **Vector size mismatch:** ensure all tenants share the same embedding dimensions; otherwise create separate collections via overrides.
 - **SSE behind proxies:** configure proxy timeouts ≥300s and enable bundled Nginx profile for local validation.
+- **OpenRouter 404/429:** 404 indicates the free/publication toggle isn’t enabled on OpenRouter; 429 means upstream rate limit—retry after a short pause.
 
 ## Further Reading
 

@@ -48,6 +48,107 @@ Memscend is a multi-tenant memory service that extracts durable memories with a 
    - `core.write.normalize_with_llm` defaults to `false` so the service runs without OpenRouter; set to `true` when a valid key is configured. This repo ships with it enabled using `openrouter/sonoma-sky-alpha`.
 4. Environment overrides: set `TEI_BASE_URL`, `QDRANT_URL`, `OPENROUTER_BASE_URL`, etc. when services are not on defaults.
 
+## Policy Playbooks
+
+Memscend derives write/search behaviour from the defaults in `core.write` / `core.retrieval` and the overrides defined under `core.organisations`. The scenarios below capture common agent personas; drop the snippets into `config/memory-config.yaml` (or environment-specific overrides) and adjust IDs to match your tenants.
+
+### Personal assistant (long-lived habits)
+
+```yaml
+core:
+  organisations:
+    home:
+      agents:
+        pa:
+          write:
+            enabled_scopes: ["facts", "prefs", "persona", "constraints"]
+            normalize_with_llm: true
+            min_chars: 12
+            deduplicate: true
+            max_batch: 16
+          retrieval:
+            top_k: 8
+            ef_search: 96
+            include_text: true
+```
+
+- Capture routines, commitments, and style cues; keep every scope enabled so preferences and persona traits persist.
+- Leave normalization on so OpenRouter cleans messy snippets and honours `skip=true` responses.
+- Slightly higher `top_k`/`ef_search` keeps older memories searchable when the account accrues thousands of entries.
+
+### Pair-programming buddy (ephemeral code context)
+
+```yaml
+core:
+  organisations:
+    studio:
+      agents:
+        dev-buddy:
+          write:
+            enabled_scopes: ["facts", "constraints"]
+            normalize_with_llm: false
+            min_chars: 24
+            deduplicate: true
+          retrieval:
+            top_k: 4
+            include_text: true
+```
+
+- Scope down to design decisions and guardrails; skip persona/prefs to avoid overfitting on teammate chatter.
+- Disable normalization so code fragments and stack traces are stored verbatim; the higher `min_chars` filters drive-by comments.
+- Ask the client to set `ttl_days` (7–14) on writes so outdated branch notes expire automatically.
+
+### Support triage agent (multi-user tickets)
+
+```yaml
+core:
+  organisations:
+    support:
+      write:
+        enabled_scopes: ["facts", "constraints"]
+        normalize_with_llm: true
+        min_chars: 18
+        deduplicate: true
+        max_batch: 8
+      retrieval:
+        top_k: 6
+        ef_search: 128
+        include_text: true
+```
+
+- Normalization standardises noisy ticket summaries while dedupe prevents duplicate escalation records.
+- Lower `max_batch` keeps bursty ingest (e.g. nightly sync jobs) from flooding Qdrant; push `ttl_days` ≈30 when creating memories so aged tickets fall away.
+- Higher `ef_search` boosts recall across similar incidents reported by different users or regions.
+
+### Project memory hub (research notes and decisions)
+
+```yaml
+core:
+  organisations:
+    research:
+      write:
+        enabled_scopes: ["facts", "constraints"]
+        normalize_with_llm: true
+        min_chars: 32
+        deduplicate: false
+      retrieval:
+        top_k: 10
+        include_text: true
+```
+
+- Allow richer notes by relaxing dedupe; multiple meeting summaries can coexist without overwriting one another.
+- Encourage clients to tag entries with project IDs and to set `ttl_days` when initiatives sunset.
+- Larger `top_k` supports comparative research (“what did we decide last quarter?”) where multiple memos matter.
+
+**Cross-cutting tips**
+- Define separate `core.organisations` entries per tenant; shared defaults risk accidental data mixing.
+- Keep embedding dimensions aligned (128/256/512/768) and recreate collections when you change them.
+- Treat `max_batch` as backpressure—raise it only after verifying Qdrant latency under load.
+- Leave `deduplicate` enabled unless you explicitly need near-duplicate tracking (e.g. iterative drafts).
+- Clients must still send `tags` and `ttl_days`; policies cannot infer lifecycle metadata automatically.
+
+Lightweight policy tuning like this mirrors guidance from the OpenAI Cookbook vector database notes and Pinecone’s production memory recommendations, while staying within Memscend’s tenancy guardrails.
+
 ## Local Development Workflow
 
 ```bash

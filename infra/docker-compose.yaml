@@ -8,8 +8,6 @@ services:
       HF_TOKEN: ${HUGGING_FACE_HUB_TOKEN}
     env_file:
       - ../.env
-    ports:
-      - "3000:80"
 
   qdrant:
     image: qdrant/qdrant:latest

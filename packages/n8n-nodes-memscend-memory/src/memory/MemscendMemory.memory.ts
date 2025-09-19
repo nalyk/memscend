@@ -4,7 +4,6 @@ import type {
     IMemory,
     IMemoryData,
     IMemoryUpdate,
-    INodeExecutionData,
 } from 'n8n-workflow';
 
 interface MemscendCredentials {
@@ -105,7 +104,7 @@ export class MemscendMemory implements IMemory {
         }
 
         this.client = axios.create({
-            baseURL: this.credentials.baseUrl,
+            baseURL: this.credentials.baseUrl.replace(/\/$/, ''),
             headers,
             timeout: 10000,
         });
@@ -129,11 +128,13 @@ export class MemscendMemory implements IMemory {
     async saveContext(data: IMemoryUpdate): Promise<void> {
         if (!this.client) throw new Error('Memscend memory not initialised');
         if (!data.output) return;
-        const userId = this.credentials?.userId ?? data?.metadata?.userId ?? 'default-user';
+        const userId = this.credentials?.userId ?? (data?.metadata?.userId as string | undefined) ?? 'default-user';
+        const text = Array.isArray(data.output) ? data.output.join('\n') : String(data.output);
+        if (!text.trim()) return;
         const payload = {
             user_id: userId,
             scope: this.scope,
-            text: Array.isArray(data.output) ? data.output.join('\n') : String(data.output),
+            text,
             tags: this.tags,
         };
         await this.client.post('/api/v1/mem/add', payload);
@@ -149,7 +150,7 @@ export class MemscendMemory implements IMemory {
         await this.client.post('/api/v1/mem/delete/batch', { ids, hard: false });
     }
 
-    async vectorStore(): Promise<INodeExecutionData[]> {
+    async vectorStore() {
         return [];
     }
 }

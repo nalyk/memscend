@@ -1,0 +1,35 @@
+{
+  "name": "@memscend/n8n-nodes-memscend-memory",
+  "version": "0.1.0",
+  "description": "Memscend memory integration for n8n Agent nodes",
+  "type": "module",
+  "main": "dist/nodes/MemscendMemory/MemscendMemory.node.js",
+  "types": "dist/nodes/MemscendMemory/MemscendMemory.node.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "lint": "eslint src --ext .ts",
+    "prepare": "npm run build"
+  },
+  "keywords": [
+    "n8n",
+    "n8n-community-node",
+    "memory",
+    "memscend",
+    "agent"
+  ],
+  "author": "Memscend",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.7.7"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "@typescript-eslint/eslint-plugin": "^8.8.0",
+    "@typescript-eslint/parser": "^8.8.0",
+    "eslint": "^9.8.0",
+    "typescript": "^5.6.3"
+  }
+}

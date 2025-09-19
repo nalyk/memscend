@@ -77,14 +77,24 @@ All endpoints require tenancy headers plus shared-secret (or JWT, if configured)
 
 ## MCP Tools
 
-The FastMCP server exposes four tools over SSE (Claude Desktop, Cursor, etc.):
+The FastMCP server exposes structured tools (Pydantic responses) with context-aware logging and progress. Highlights:
 
-- `add_memories(text, user_id, org_id, agent_id, scope?, tags?, ttl_days?)`
-- `search_memory(query, org_id, agent_id, user_id?, k?, scope?, tags?)`
-- `update_memory(memory_id, org_id, agent_id, text?, tags?, scope?, ttl_days?, deleted?)`
-- `delete_memory(memory_id, org_id, agent_id, hard?)`
+- `add_memories(text?, messages?, user_id?, org_id?, agent_id?, scope?, tags?, ttl_days?, source?, idempotency_key?)`
+- `search_memory(query, org_id?, agent_id?, user_id?, k?, scope?, tags?)`
+- `update_memory(memory_id, org_id?, agent_id?, text?, tags?, scope?, ttl_days?, deleted?)`
+- `delete_memory(memory_id, org_id?, agent_id?, hard?)`
 
-Launch with `uv run python -m mcp_gw.server` and register the local server inside your MCP-compatible client. The server binds to `0.0.0.0:8050` and exposes an SSE endpoint at `/sse` (keep-alive pings every 15 s).
+All tools emit rich JSON that mirrors the HTTP gateway schema. Clients also gain access to the read-only resource `memscend://capabilities` for static defaults (scopes, vector size, transports).
+
+### Identity requirements
+
+- `org_id` and `agent_id` remain mandatory for every call. If a client omits them and *does* support [MCP elicitation](https://modelcontextprotocol.io/specification/draft/basic/elicitation), the server prompts once per session and caches the responses. Clients that do **not** implement elicitation must supply the identifiers via tool arguments or transport headers (for SSE/streamable HTTP).
+- `user_id` is required for writes (`add_memories`, `update_memory`, `delete_memory`); the same hybrid behaviour applies—prompt when possible, otherwise raise an error.
+- Cached values live for the lifetime of the MCP session. Reconnect when switching tenants or end users.
+
+Tip: when using browser-based SSE transports, configure headers (e.g. `X-Memscend-Org`, `X-Memscend-Agent`, `X-Memscend-User`) through your client’s transport settings to avoid repeated prompts.
+
+Launch with `uv run python -m mcp_gw.server` and register the local server inside your MCP-compatible client. The server binds to `0.0.0.0:8050` and exposes an SSE endpoint at `/sse` (keep-alive pings every 15 s). Set `MCP_TRANSPORT=stdio` or `MCP_TRANSPORT=streamable_http` to switch transports without code changes.
 
 ## Docker Compose Stack
 

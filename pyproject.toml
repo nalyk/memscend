@@ -24,7 +24,7 @@ dependencies = [
     "cryptography>=42.0",
     "rich>=13.7",
     "pyyaml>=6.0",
-    "mcp>=0.1.0"
+    "mcp>=1.14,<2"
 ]
 
 [project.optional-dependencies]

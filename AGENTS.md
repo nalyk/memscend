@@ -43,9 +43,15 @@
 - `DELETE /api/v1/mem/{id}` with `?hard=true` for physical delete; defaults to soft delete.
 
 ## MCP Tooling
-- Tools: `add_memories`, `search_memory`, `update_memory`, `delete_memory` (call signatures mirror HTTP).
+- Tools: `add_memories`, `search_memory`, `update_memory`, `delete_memory` (structured responses match the HTTP gateway schema).
+- Identity contract:
+  - `org_id` + `agent_id` are mandatory for every tool call. Supply them explicitly or ensure the client can respond to elicitation prompts. Values persist per MCP session.
+  - `user_id` is required for writes. Provide it up front; elicitation kicks in only if the client has advertised support.
+  - If the client lacks elicitation, calls must include the IDs or the server raises a `ToolError` instructing the user to configure headers/arguments.
+- Cached identity lives on the MCP session; reconnect when switching tenants or users.
 - Startup/shutdown hooks call `MemoryCore.startup/shutdown`; avoid blocking operations inside tool handlers.
-- Register server via MCP client config pointing at `http://127.0.0.1:8050`.
+- Register server via MCP client config pointing at `http://127.0.0.1:8050`. SSE endpoint `/sse` (heartbeat 15 s); set `MCP_TRANSPORT=stdio` or `streamable_http` when using alternative transports.
+- Recommended headers for HTTP/SSE clients that can set them: `X-Memscend-Org`, `X-Memscend-Agent`, `X-Memscend-User`.
 
 ## Testing Doctrine
 - Pytest structure: `tests/unit/` (isolated with stubs), `tests/integration/` (FastAPI TestClient + patched core).

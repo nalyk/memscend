@@ -61,7 +61,7 @@ async def test_add_deduplicates_memories(settings: Settings):
     core._tei.embed = AsyncMock(return_value=[[0.1] * 768])  # type: ignore[assignment]
     core._llm.normalize_memories = AsyncMock(side_effect=lambda texts, model=None: texts)  # type: ignore[assignment]
 
-    request = MemoryAddRequest(user_id="user-1", text="Call mom", scope="prefs")
+    request = MemoryAddRequest(user_id="user-1", text="Call mom tomorrow", scope="prefs")
 
     first = await core.add("org-1", "agent-1", request)
     assert len(first) == 1
@@ -112,4 +112,3 @@ async def test_search_applies_time_decay(settings: Settings):
 
     results = await core.search("org-1", "agent-1", SearchRequest(query="prefs"))
     assert [hit.id for hit in results] == ["recent", "old"], "recent record should outrank after decay"
-

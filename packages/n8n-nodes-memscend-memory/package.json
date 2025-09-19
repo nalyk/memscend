@@ -2,7 +2,7 @@
   "name": "@yoda.digital/n8n-nodes-memscend-memory",
   "version": "0.1.0",
   "description": "Memscend memory integration for n8n Agent nodes",
-  "type": "module",
+  "type": "commonjs",
   "main": "dist/nodes/MemscendMemory/MemscendMemory.node.js",
   "types": "dist/nodes/MemscendMemory/MemscendMemory.node.d.ts",
   "files": [

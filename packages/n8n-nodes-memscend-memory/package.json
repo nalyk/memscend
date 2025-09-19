@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "description": "Memscend memory integration for n8n Agent nodes",
   "type": "commonjs",
-  "main": "dist/nodes/MemscendMemory/MemscendMemory.node.js",
-  "types": "dist/nodes/MemscendMemory/MemscendMemory.node.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "files": [
     "dist"
   ],

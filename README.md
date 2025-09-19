@@ -33,9 +33,11 @@ Memscend is a multi-tenant memory service that extracts durable memories with a 
 ## Configuration
 
 1. Copy `.env.example` to `.env` and populate:
+
 - `OPENROUTER_API_KEY`
 - `HUGGING_FACE_HUB_TOKEN`
 - `MEMORY_SHARED_SECRET` (used by gateways for shared-secret auth)
+
 2. Visit the model pages and accept license terms:
    - <https://huggingface.co/google/embeddinggemma-300m>
    - <https://openrouter.ai/models/openrouter/sonoma-sky-alpha>
@@ -96,7 +98,7 @@ All tools emit rich JSON that mirrors the HTTP gateway schema. Clients also gain
 
 ### Identity requirements
 
-- `org_id` and `agent_id` remain mandatory for every call. If a client omits them and *does* support [MCP elicitation](https://modelcontextprotocol.io/specification/draft/basic/elicitation), the server prompts once per session and caches the responses. Clients that do **not** implement elicitation must supply the identifiers via tool arguments or transport headers (for SSE/streamable HTTP).
+- `org_id` and `agent_id` remain mandatory for every call. If a client omits them and _does_ support [MCP elicitation](https://modelcontextprotocol.io/specification/draft/basic/elicitation), the server prompts once per session and caches the responses. Clients that do **not** implement elicitation must supply the identifiers via tool arguments or transport headers (for SSE/streamable HTTP).
 - `user_id` is required for writes (`add_memories`, `update_memory`, `delete_memory`); the same hybrid behaviour applies—prompt when possible, otherwise raise an error.
 - Cached values live for the lifetime of the MCP session. Reconnect when switching tenants or end users.
 
@@ -115,7 +117,8 @@ Launch with `uv run python -m mcp_gw.server` and register the local server insid
 For best results, prime your MCP client/agent with the following instructions before connecting to Memscend. They combine role prompting, retrieval planning, and self-checks aligned with our ingestion pipeline.
 
 ```
-You are "Memscend Companion", an autonomous assistant that reads from and writes to Memscend's memory service.
+<mandatory_memory_protocol>
+Follow these instructions for each interaction:
 
 Global rules:
 1. Identity & tenancy
@@ -163,6 +166,7 @@ Global rules:
    • If you translate, include qualifiers like "(originally in es)".
 
 Stay concise, respect user privacy, and let the Memscend server manage deduplication, time decay, and normalization.
+</mandatory_memory_protocol>
 ```
 
 ## Docker Compose Stack

@@ -156,6 +156,33 @@ core:
 - Encourage clients to tag entries with project IDs and to set `ttl_days` when initiatives sunset.
 - Larger `top_k` supports comparative research (“what did we decide last quarter?”) where multiple memos matter.
 
+### Telegram newsroom agent (group chat MCP)
+
+```yaml
+core:
+  organisations:
+    newsroom:
+      agents:
+        telegram-editor-bot:
+          write:
+            enabled_scopes: ["facts", "constraints"]
+            normalize_with_llm: true       # clean up informal chat messages
+            min_chars: 24                  # ignore very short chatter
+            deduplicate: true              # collapse repeated tips
+            ttl_days: 60                   # drop stale leads after two months
+            max_batch: 8                   # guard against floods / compromised accounts
+          retrieval:
+            top_k: 8
+            include_text: true
+            ef_search: 96
+```
+
+- Persist only explicit commands (e.g. `/remember`) so casual chatter is ignored; the bot should never write memories passively.
+- Pipe the Telegram sender into `user_id` / `X-Memscend-User` so every memory keeps reporter attribution and audits remain possible.
+- Use scopes to split durable editorial rules (`constraints`) from day-to-day beats and leads (`facts`).
+- Add tags (`lead`, `assignment`, `policy`) when calling `add_memories` to make newsroom searches more targeted.
+- Review the store periodically; TTL plus dedupe help keep the corpus lean, but an editor should still prune sensitive or outdated notes.
+
 **Cross-cutting tips**
 - Define separate `core.organisations` entries per tenant; shared defaults risk accidental data mixing.
 - Keep embedding dimensions aligned (128/256/512/768) and recreate collections when you change them.

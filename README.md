@@ -219,6 +219,16 @@ Always supply `X-Org-Id` and `X-Agent-Id` (or respond to elicitation) so Memscen
 - To run Memscend locally for n8n’s MCP Client, point SIgnCommand/Arguments at `python -m mcp_gw.server` (stdio) or expose the SSE endpoint via Docker Compose for remote n8n instances.
 - If the n8n MCP Client reports “No transport found,” restart the workflow and confirm the SSE endpoint is reachable in a browser—this clears stale sessions noted by n8n users.
 
+#### Memscend Memory node for n8n
+- A dedicated memory provider lives in [`packages/n8n-nodes-memscend-memory`](packages/n8n-nodes-memscend-memory). Build and publish it to n8n with:
+  ```bash
+  cd packages/n8n-nodes-memscend-memory
+  npm install
+  npm run build
+  npm publish --access public  # when ready
+  ```
+- Install the package in n8n (requires `N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true`), add the **Memscend API** credential, then drop the **Memscend Memory** node into the Agent’s memory slot.
+
 ## Docker Compose Stack
 
 The compose bundle provides:

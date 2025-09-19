@@ -314,6 +314,82 @@ Below are quick-start snippets for popular MCP clients.
 
 Always supply `X-Org-Id` and `X-Agent-Id` (or respond to elicitation) so Memscend can scope memories correctly.
 
+#### CLI agents
+- **Claude Code CLI:** Add Memscend over SSE with headers so the CLI can authenticate without editing JSON files every time:
+  ```bash
+  claude mcp add --transport sse --scope local memscend \
+    http://<host>:8050/sse \
+    --header "Authorization: Bearer <shared secret>" \
+    --header "X-Org-Id: <org_id>" \
+    --header "X-Agent-Id: <agent_id>" \
+    --header "X-Memscend-User: <user_id>"
+  ```
+  The CLI stores the entry in `~/.claude/settings.json` (or the project/local overrides listed in the Claude docs).[1][2]
+
+- **OpenAI Codex CLI:** Codex only speaks stdio today, so point it at `mcp-proxy`, which bridges our SSE endpoint to codex-compatible stdio. Add the following block to `~/.codex/config.toml` (or create it if missing):
+  ```toml
+  [mcp_servers.memscend]
+  command = "npx"
+  args = [
+    "-y", "mcp-proxy",
+    "--server-url", "http://<host>:8050/sse",
+    "--header", "Authorization: Bearer <shared secret>",
+    "--header", "X-Org-Id: <org_id>",
+    "--header", "X-Agent-Id: <agent_id>",
+    "--header", "X-Memscend-User: <user_id>"
+  ]
+  ```
+  Codex will launch the proxy on demand and stream tools through it.[7]
+
+- **Gemini CLI:** Define a remote server in `~/.gemini/settings.json` (or `.gemini/settings.json` in your workspace):
+  ```json
+  {
+    "mcpServers": {
+      "memscend": {
+        "url": "http://<host>:8050/sse",
+        "headers": {
+          "Authorization": "Bearer <shared secret>",
+          "X-Org-Id": "<org_id>",
+          "X-Agent-Id": "<agent_id>",
+          "X-Memscend-User": "<user_id>"
+        }
+      }
+    }
+  }
+  ```
+  Gemini will pick up the change after a `/mcp refresh`.[3]
+
+- **Qwen Code CLI:** Use the built-in helper to register our SSE endpoint:
+  ```bash
+  qwen mcp add --scope user --transport sse memscend http://<host>:8050/sse \
+    --header "Authorization: Bearer <shared secret>" \
+    --header "X-Org-Id: <org_id>" \
+    --header "X-Agent-Id: <agent_id>" \
+    --header "X-Memscend-User: <user_id>"
+  ```
+  The command writes to `~/.qwen/settings.json`; you can also edit the `mcpServers` block manually if you prefer.[4]
+
+- **OpenCode CLI:** Add a `mcp` entry to `opencode.json` (either project-local or `~/.config/opencode/opencode.json`):
+  ```json
+  {
+    "$schema": "https://opencode.ai/config.json",
+    "mcp": {
+      "memscend": {
+        "type": "remote",
+        "enabled": true,
+        "url": "http://<host>:8050/sse",
+        "headers": {
+          "Authorization": "Bearer <shared secret>",
+          "X-Org-Id": "<org_id>",
+          "X-Agent-Id": "<agent_id>",
+          "X-Memscend-User": "<user_id>"
+        }
+      }
+    }
+  }
+  ```
+  OpenCode ingests the config on restart; the same structure works in the global config under `~/.config/opencode/`.[5][6]
+
 #### n8n workflows
 - Install the community package `nerding-io/n8n-nodes-mcp` (requires `N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true` in your n8n environment).
 - In the MCP Client credentials, choose **SSE** and set `Endpoint` to `http://<host>:8050/sse`. Add custom headers for `Authorization: Bearer <MEMORY_SHARED_SECRET>`, `X-Org-Id`, and `X-Agent-Id`.

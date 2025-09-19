@@ -1,5 +1,5 @@
 {
-  "name": "@memscend/n8n-nodes-memscend-memory",
+  "name": "@yoda.digital/n8n-nodes-memscend-memory",
   "version": "0.1.0",
   "description": "Memscend memory integration for n8n Agent nodes",
   "type": "module",

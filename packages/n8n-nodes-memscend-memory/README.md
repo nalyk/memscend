@@ -17,9 +17,9 @@ Memscend is a multi-tenant memory service built on OpenRouter, TEI, and Qdrant. 
    export N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true
    ```
 2. Install the package:
-   ```bash
-   npm install @memscend/n8n-nodes-memscend-memory
-   ```
+```bash
+npm install @yoda.digital/n8n-nodes-memscend-memory
+```
 3. Restart n8n. The "Memscend Memory" node appears under the Memory section of the Agent panel.
 
 ## Credentials

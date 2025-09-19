@@ -11,13 +11,6 @@ type MemoryUpdate = {
     metadata?: Record<string, unknown>;
 };
 
-interface IMemoryNode {
-    init(this: IExecuteFunctions): Promise<void>;
-    loadMemoryVariables(): Promise<MemoryData>;
-    saveContext(data: MemoryUpdate): Promise<void>;
-    clear(): Promise<void>;
-}
-
 interface MemscendCredentials {
     baseUrl: string;
     sharedSecret: string;
@@ -38,7 +31,16 @@ interface MemoryItem {
     };
 }
 
-export class MemscendMemory implements IMemoryNode {
+type NodeState = {
+    client?: AxiosInstance;
+    credentials?: MemscendCredentials;
+    scope?: string;
+    tags?: string[];
+    maxItems?: number;
+    includeDeleted?: boolean;
+};
+
+export class MemscendMemory {
     description = {
         displayName: 'Memscend Memory',
         name: 'memscendMemory',
@@ -85,50 +87,46 @@ export class MemscendMemory implements IMemoryNode {
         ],
     };
 
-    private client: AxiosInstance | null = null;
-    private credentials: MemscendCredentials | null = null;
-    private scope = 'facts';
-    private tags: string[] = [];
-    private maxItems = 20;
-    private includeDeleted = false;
-
     async init(this: IExecuteFunctions): Promise<void> {
-        this.credentials = await this.getCredentials('memscendApi') as MemscendCredentials;
-        if (!this.credentials) throw new Error('Memscend credentials not found');
-        this.scope = this.getNodeParameter('scope', 0, 'facts') as string;
+        const state = this.getWorkflowStaticData('node') as NodeState;
+        const credentials = await this.getCredentials('memscendApi') as MemscendCredentials;
+        if (!credentials) throw new Error('Memscend credentials not found');
+        state.credentials = credentials;
+        state.scope = this.getNodeParameter('scope', 0, 'facts') as string;
         const tagsString = this.getNodeParameter('tags', 0, '') as string;
-        this.tags = tagsString ? tagsString.split(',').map((tag) => tag.trim()).filter(Boolean) : [];
-        this.maxItems = this.getNodeParameter('maxItems', 0, 20) as number;
-        this.includeDeleted = this.getNodeParameter('includeDeleted', 0, false) as boolean;
+        state.tags = tagsString ? tagsString.split(',').map((tag) => tag.trim()).filter(Boolean) : [];
+        state.maxItems = this.getNodeParameter('maxItems', 0, 20) as number;
+        state.includeDeleted = this.getNodeParameter('includeDeleted', 0, false) as boolean;
 
         const headers: Record<string, string> = {
-            Authorization: `Bearer ${this.credentials.sharedSecret}`,
+            Authorization: `Bearer ${credentials.sharedSecret}`,
             'Content-Type': 'application/json',
-            'X-Org-Id': this.credentials.orgId,
-            'X-Agent-Id': this.credentials.agentId,
+            'X-Org-Id': credentials.orgId,
+            'X-Agent-Id': credentials.agentId,
         };
-        if (this.credentials.headers) {
-            for (const header of this.credentials.headers) {
+        if (credentials.headers) {
+            for (const header of credentials.headers) {
                 if (header.name && header.value) {
                     headers[header.name] = header.value;
                 }
             }
         }
 
-        this.client = axios.create({
-            baseURL: this.credentials.baseUrl.replace(/\/$/, ''),
+        state.client = axios.create({
+            baseURL: credentials.baseUrl.replace(/\/$/, ''),
             headers,
             timeout: 10000,
         });
     }
 
-    async loadMemoryVariables(): Promise<MemoryData> {
-        if (!this.client) throw new Error('Memscend memory not initialised');
+    async loadMemoryVariables(this: IExecuteFunctions): Promise<MemoryData> {
+        const state = this.getWorkflowStaticData('node') as NodeState;
+        if (!state.client) throw new Error('Memscend memory not initialised');
         const params = {
-            limit: this.maxItems,
-            include_deleted: this.includeDeleted,
+            limit: state.maxItems ?? 20,
+            include_deleted: state.includeDeleted ?? false,
         };
-        const response = await this.client.get<{ items: MemoryItem[] }>('/api/v1/mem/list', { params });
+        const response = await state.client.get<{ items: MemoryItem[] }>('/api/v1/mem/list', { params });
         const memories = response.data.items.filter((item) => !item.payload.deleted);
         const history = memories.map((item) => ({
             role: 'assistant',
@@ -137,32 +135,34 @@ export class MemscendMemory implements IMemoryNode {
         return { history };
     }
 
-    async saveContext(data: MemoryUpdate): Promise<void> {
-        if (!this.client) throw new Error('Memscend memory not initialised');
+    async saveContext(this: IExecuteFunctions, data: MemoryUpdate): Promise<void> {
+        const state = this.getWorkflowStaticData('node') as NodeState;
+        if (!state.client || !state.credentials) throw new Error('Memscend memory not initialised');
         if (!data.output) return;
-        const userId = this.credentials?.userId ?? (data?.metadata?.userId as string | undefined) ?? 'default-user';
+        const userId = state.credentials.userId ?? (data?.metadata?.userId as string | undefined) ?? 'default-user';
         const text = Array.isArray(data.output) ? data.output.join('\n') : String(data.output);
         if (!text.trim()) return;
         const payload = {
             user_id: userId,
-            scope: this.scope,
+            scope: state.scope ?? 'facts',
             text,
-            tags: this.tags,
+            tags: state.tags ?? [],
         };
-        await this.client.post('/api/v1/mem/add', payload);
+        await state.client.post('/api/v1/mem/add', payload);
     }
 
-    async clear(): Promise<void> {
-        if (!this.client) throw new Error('Memscend memory not initialised');
-        const response = await this.client.get<{ items: MemoryItem[] }>('/api/v1/mem/list', {
-            params: { limit: this.maxItems, include_deleted: true },
+    async clear(this: IExecuteFunctions): Promise<void> {
+        const state = this.getWorkflowStaticData('node') as NodeState;
+        if (!state.client) throw new Error('Memscend memory not initialised');
+        const response = await state.client.get<{ items: MemoryItem[] }>('/api/v1/mem/list', {
+            params: { limit: state.maxItems ?? 20, include_deleted: true },
         });
         const ids = response.data.items.map((item) => item.id);
         if (!ids.length) return;
-        await this.client.post('/api/v1/mem/delete/batch', { ids, hard: false });
+        await state.client.post('/api/v1/mem/delete/batch', { ids, hard: false });
     }
 
-    async vectorStore() {
+    async vectorStore(this: IExecuteFunctions) {
         return [];
     }
 }

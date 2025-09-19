@@ -7,6 +7,8 @@ import uuid
 from datetime import datetime
 from math import sin
 
+TIME_DECAY_HALF_LIFE_DAYS = 90
+
 
 def make_id(org_id: str, agent_id: str, text: str) -> str:
     """Deterministic UUID5 based on tenant and memory text."""
@@ -29,7 +31,12 @@ def compute_hash(org_id: str, agent_id: str, user_id: str, text: str) -> str:
     return digest.hexdigest()
 
 
-def apply_time_decay(score: float, created_at: datetime, now: datetime, half_life_days: int = 90) -> float:
+def apply_time_decay(
+    score: float,
+    created_at: datetime,
+    now: datetime,
+    half_life_days: int = TIME_DECAY_HALF_LIFE_DAYS,
+) -> float:
     """Apply exponential time decay to relevance scores."""
 
     days = max((now - created_at).days, 0)

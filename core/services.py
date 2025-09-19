@@ -180,7 +180,7 @@ class MemoryCore:
         repository = await self._get_repository(overrides)
         top_k = request.k or self._resolve_top_k(overrides)
         vector = (await self._tei.embed([request.query]))[0]
-        hits = await repository.search(
+        hits = await repository.search_with_reranker(
             vector,
             limit=top_k,
             org_id=org_id,
@@ -188,14 +188,26 @@ class MemoryCore:
             scope=request.scope,
             tags=request.tags or None,
         )
-        now = datetime.utcnow()
-        adjusted: List[MemoryHit] = []
-        for hit in hits:
-            payload = hit.payload
-            score = apply_time_decay(hit.score, payload.created_at, now)
-            adjusted.append(MemoryHit(id=hit.id, score=score, text=hit.text, payload=payload))
-        adjusted.sort(key=lambda h: h.score, reverse=True)
-        return adjusted
+        if hits is None:
+            raw_hits = await repository.search(
+                vector,
+                limit=top_k,
+                org_id=org_id,
+                agent_id=agent_id,
+                scope=request.scope,
+                tags=request.tags or None,
+            )
+            now = datetime.utcnow()
+            adjusted: List[MemoryHit] = []
+            for hit in raw_hits:
+                payload = hit.payload
+                score = apply_time_decay(hit.score, payload.created_at, now)
+                adjusted.append(MemoryHit(id=hit.id, score=score, text=hit.text, payload=payload))
+            adjusted.sort(key=lambda h: h.score, reverse=True)
+            return adjusted
+
+        hits.sort(key=lambda h: h.score, reverse=True)
+        return hits
 
     async def update(self, org_id: str, agent_id: str, memory_id: str, request: UpdateMemoryRequest) -> MemoryRecord:
         repository = await self._get_repository(self._resolve_overrides(org_id, agent_id))

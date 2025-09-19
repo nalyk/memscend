@@ -169,6 +169,50 @@ Stay concise, respect user privacy, and let the Memscend server manage deduplica
 </mandatory_memory_protocol>
 ```
 
+### MCP client configuration
+
+Memscend exposes three transports:
+- **SSE:** `http://<host>:8050/sse`
+- **Streamable HTTP:** `http://<host>:8050/mcp`
+- **STDIO:** run `python -m mcp_gw.server` (set `MCP_TRANSPORT=stdio` to force stdio)
+
+Below are quick-start snippets for popular MCP clients.
+
+#### Claude Desktop
+- Claude Desktop speaks stdio. Bridge our SSE endpoint with the official proxy helper:
+  ```bash
+  uvx mcp-proxy --server-url http://<host>:8050/sse --client claude-desktop
+  ```
+  Keep the proxy running; Claude Desktop will list Memscend once the proxy registers.citeturn0search1
+
+#### Cursor IDE
+- Cursor can connect over SSE via Settings → MCP:
+  ```json
+  {
+    "type": "sse",
+    "id": "memscend-memory",
+    "url": "http://<host>:8050/sse",
+    "description": "Memscend memory service"
+  }
+  ```
+- Alternatively, configure a stdio command if you run the server locally inside the project environment.citeturn1search4turn1search3
+
+#### Windsurf (Cascade)
+- Enable MCP under **Settings → MCP** and register Memscend with the SSE URL above. Remote MCP servers require a paid Windsurf plan; local stdio connections remain available on free tiers.citeturn2search0turn2search1
+
+#### JetBrains AI Assistant
+- JetBrains 2025.2+ provides an MCP panel. Add Memscend as a custom stdio server:
+  ```bash
+  python -m mcp_gw.server --host 0.0.0.0 --port 8050
+  ```
+  Configure the command to run inside your project environment; the IDE handles stdio wiring automatically.citeturn1search0
+
+#### Streamable HTTP & other clients
+- FastMCP-compatible clients that speak streamable HTTP can target `http://<host>:8050/mcp` directly.citeturn0search2
+- If a client cannot set headers for SSE, use `mcp-proxy` (shown above) to relay the connection.
+
+Always supply `X-Org-Id` and `X-Agent-Id` (or respond to elicitation) so Memscend can scope memories correctly.
+
 ## Docker Compose Stack
 
 The compose bundle provides:

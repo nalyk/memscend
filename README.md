@@ -397,7 +397,7 @@ Always supply `X-Org-Id` and `X-Agent-Id` (or respond to elicitation) so Memscen
 - If the n8n MCP Client reports “No transport found,” restart the workflow and confirm the SSE endpoint is reachable in a browser—this clears stale sessions noted by n8n users.
 
 #### Memscend Memory node for n8n
-- Early WIP: the dedicated node is still experimental; expect breaking changes and rough edges while we validate the UX.
+- Early WIP: the dedicated node is not functional yet; treat it as a placeholder until we ship a working build.
 - A dedicated memory provider lives in [`packages/n8n-nodes-memscend-memory`](packages/n8n-nodes-memscend-memory). Build and publish it to n8n with:
   ```bash
   cd packages/n8n-nodes-memscend-memory

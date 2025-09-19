@@ -183,7 +183,7 @@ Below are quick-start snippets for popular MCP clients.
   ```bash
   uvx mcp-proxy --server-url http://<host>:8050/sse --client claude-desktop
   ```
-  Keep the proxy running; Claude Desktop will list Memscend once the proxy registers.citeturn0search1
+  Keep the proxy running; Claude Desktop will list Memscend once the proxy registers.
 
 #### Cursor IDE
 - Cursor can connect over SSE via Settings → MCP:
@@ -195,29 +195,29 @@ Below are quick-start snippets for popular MCP clients.
     "description": "Memscend memory service"
   }
   ```
-- Alternatively, configure a stdio command if you run the server locally inside the project environment.citeturn1search4turn1search3
+- Alternatively, configure a stdio command if you run the server locally inside the project environment.
 
 #### Windsurf (Cascade)
-- Enable MCP under **Settings → MCP** and register Memscend with the SSE URL above. Remote MCP servers require a paid Windsurf plan; local stdio connections remain available on free tiers.citeturn2search0turn2search1
+- Enable MCP under **Settings → MCP** and register Memscend with the SSE URL above. Remote MCP servers require a paid Windsurf plan; local stdio connections remain available on free tiers.
 
 #### JetBrains AI Assistant
 - JetBrains 2025.2+ provides an MCP panel. Add Memscend as a custom stdio server:
   ```bash
   python -m mcp_gw.server --host 0.0.0.0 --port 8050
   ```
-  Configure the command to run inside your project environment; the IDE handles stdio wiring automatically.citeturn1search0
+  Configure the command to run inside your project environment; the IDE handles stdio wiring automatically.
 
 #### Streamable HTTP & other clients
-- FastMCP-compatible clients that speak streamable HTTP can target `http://<host>:8050/mcp` directly.citeturn0search2
+- FastMCP-compatible clients that speak streamable HTTP can target `http://<host>:8050/mcp` directly.
 - If a client cannot set headers for SSE, use `mcp-proxy` (shown above) to relay the connection.
 
 Always supply `X-Org-Id` and `X-Agent-Id` (or respond to elicitation) so Memscend can scope memories correctly.
 
 #### n8n workflows
-- Install the community package `nerding-io/n8n-nodes-mcp` (requires `N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true` in your n8n environment).citeturn0search0
-- In the MCP Client credentials, choose **SSE** and set `Endpoint` to `http://<host>:8050/sse`. Add custom headers for `Authorization: Bearer <MEMORY_SHARED_SECRET>`, `X-Org-Id`, and `X-Agent-Id`.citeturn0search5
+- Install the community package `nerding-io/n8n-nodes-mcp` (requires `N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true` in your n8n environment).
+- In the MCP Client credentials, choose **SSE** and set `Endpoint` to `http://<host>:8050/sse`. Add custom headers for `Authorization: Bearer <MEMORY_SHARED_SECRET>`, `X-Org-Id`, and `X-Agent-Id`.
 - To run Memscend locally for n8n’s MCP Client, point SIgnCommand/Arguments at `python -m mcp_gw.server` (stdio) or expose the SSE endpoint via Docker Compose for remote n8n instances.
-- If the n8n MCP Client reports “No transport found,” restart the workflow and confirm the SSE endpoint is reachable in a browser—this clears stale sessions noted by n8n users.citeturn0search7
+- If the n8n MCP Client reports “No transport found,” restart the workflow and confirm the SSE endpoint is reachable in a browser—this clears stale sessions noted by n8n users.
 
 ## Docker Compose Stack
 

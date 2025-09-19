@@ -13,9 +13,6 @@ services:
 
   qdrant:
     image: qdrant/qdrant:latest
-    ports:
-      - "6333:6333"
-      - "6334:6334"
     environment:
       QDRANT__STORAGE__ON_DISK_PAYLOAD: "true"
     volumes:

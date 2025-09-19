@@ -213,6 +213,12 @@ Below are quick-start snippets for popular MCP clients.
 
 Always supply `X-Org-Id` and `X-Agent-Id` (or respond to elicitation) so Memscend can scope memories correctly.
 
+#### n8n workflows
+- Install the community package `nerding-io/n8n-nodes-mcp` (requires `N8N_COMMUNITY_PACKAGES_ALLOW_TOOL_USAGE=true` in your n8n environment).citeturn0search0
+- In the MCP Client credentials, choose **SSE** and set `Endpoint` to `http://<host>:8050/sse`. Add custom headers for `Authorization: Bearer <MEMORY_SHARED_SECRET>`, `X-Org-Id`, and `X-Agent-Id`.citeturn0search5
+- To run Memscend locally for n8n’s MCP Client, point SIgnCommand/Arguments at `python -m mcp_gw.server` (stdio) or expose the SSE endpoint via Docker Compose for remote n8n instances.
+- If the n8n MCP Client reports “No transport found,” restart the workflow and confirm the SSE endpoint is reachable in a browser—this clears stale sessions noted by n8n users.citeturn0search7
+
 ## Docker Compose Stack
 
 The compose bundle provides:

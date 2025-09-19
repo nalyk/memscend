@@ -11,7 +11,7 @@ from tenacity import AsyncRetrying, RetryError, stop_after_attempt, wait_exponen
 
 PROMPT_TEMPLATE = """
 You are Memscend's Memory Synthesizer.  Given a list of raw conversation snippets, produce
-durable memory candidates in strict JSON.  Follow these rules:
+durable memory candidates in strict JSON.  Follow these rules (toolbox snapshot {{TOOLBOX}}):
 
 Output Format:
 - Respond with a JSON array.  Each element must be an object containing:
@@ -36,9 +36,9 @@ Example Input:
 
 Example Output:
 [
-  {"memory": "Daily standup now begins at 09:30 CEST starting next Monday.", "scope": "facts", "confidence": 0.88, "language": "en", "skip": false},
-  {"memory": "Prefers green tea in the mornings.", "scope": "prefs", "confidence": 0.82, "language": "es", "skip": false},
-  {"memory": "", "scope": "facts", "confidence": 0.10, "language": "en", "skip": true}
+    {"memory": "Daily standup now begins at 09:30 CEST starting next Monday.", "scope": "facts", "confidence": 0.88, "language": "en", "skip": false},
+    {"memory": "Prefers green tea in the mornings.", "scope": "prefs", "confidence": 0.82, "language": "es", "skip": false},
+    {"memory": "", "scope": "facts", "confidence": 0.10, "language": "en", "skip": true}
 ]
 
 Return JSON only—no prose, comments, or additional text.

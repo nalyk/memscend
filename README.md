@@ -192,6 +192,78 @@ core:
 
 Lightweight policy tuning like this mirrors guidance from the OpenAI Cookbook vector database notes and Pinecone’s production memory recommendations, while staying within Memscend’s tenancy guardrails.
 
+## Configuration reference
+
+### `.env` / process environment
+
+| Variable | Purpose |
+| --- | --- |
+| `OPENROUTER_API_KEY` | Secret used by `OpenRouterClient` when normalization is enabled. |
+| `HUGGING_FACE_HUB_TOKEN` | Grants access to the TEI embedding model (EmbeddingGemma CPU build requires accepted license). |
+| `MEMORY_SHARED_SECRET` | Default bearer token expected on HTTP/MCP requests. Can be overridden per tenant in `config/memory-config.yaml` (`security.shared_secrets`). |
+| `TEI_BASE_URL` | Override the default TEI endpoint (`http://tei-embed:3000`). Useful when pointing at a managed TEI cluster. |
+| `QDRANT_URL` | Override the default Qdrant endpoint (`http://qdrant:6333`). |
+| `OPENROUTER_BASE_URL` | Point normalization at a different OpenRouter host. |
+| `MEMORY_CONFIG_FILE` | Absolute path to an alternate YAML config (defaults to `config/memory-config.yaml`). |
+
+### `config/memory-config.yaml`
+
+Top-level keys:
+
+| Key | Description |
+| --- | --- |
+| `environment` | Deployment label (`development`, `staging`, etc.). Informational only. |
+| `services` | Default service endpoints/credentials (`openrouter_*`, `tei_base_url`, `qdrant_url`, `qdrant_collection`). |
+| `core.write` | Global write policy (scopes, dedupe, normalization, `min_chars`, `max_batch`). Used unless overridden per organisation/agent. |
+| `core.retrieval` | Global retrieval defaults (`top_k`, `ef_search`, `include_text`). |
+| `core.collection` | Qdrant collection definition (`name`, `vector_size`, `distance`, `on_disk_payload`). |
+| `core.model` | Default normalization model (e.g., `openrouter/sonoma-sky-alpha`). |
+| `core.organisations` | Optional per-organisation and per-agent overrides for write/retrieval/collection/model/embedding dims. |
+| `security.enforce_headers` | When `true`, requests must supply `X-Org-Id` and `X-Agent-Id` (recommended). |
+| `security.shared_secrets` | Map of `org_id` → shared secret. Allows different tokens per tenant; falls back to `MEMORY_SHARED_SECRET`. |
+
+Common `core.write` knobs:
+
+- `enabled_scopes`: Subset of (`prefs`, `facts`, `persona`, `constraints`). Controls what scopes the ingestion pipeline accepts.
+- `normalize_with_llm`: `true`/`false` to run snippets through OpenRouter before storage.
+- `deduplicate`: `true`/`false` toggling hash-based dedupe on `org_id`/`agent_id`/`user_id`/text.
+- `min_chars`: Minimum non-whitespace characters before a text is eligible for storage.
+- `ttl_days`: Optional integer; values >0 persist a record until the TTL expires.
+- `max_batch`: Limit for bulk additions (guards against spammy sources).
+
+Common `core.retrieval` knobs:
+
+- `top_k`: How many vectors to request from Qdrant before time-decay/re-ranking.
+- `ef_search`: Qdrant `ef_search` override (higher = better recall at higher latency).
+- `include_text`: `true` to include stored text in search responses (set to `false` for metadata-only clients).
+
+### Required headers / tool arguments
+
+Every HTTP or MCP call must include:
+
+- `Authorization: Bearer <secret>` – either the global `MEMORY_SHARED_SECRET` or the tenant-specific shared secret.
+- `X-Org-Id` / `org_id` – tenant namespace (drives which shared secret and overrides apply).
+- `X-Agent-Id` / `agent_id` – identifies the client integration.
+
+When writing (`add_memories`, `update_memory`, `delete_memory`), you must also supply:
+
+- `X-Memscend-User` / `user_id` – end user responsible for the memory (Telegram username, Slack user ID, etc.). Keeps provenance and enables per-user queries.
+
+Optional but recommended metadata:
+
+- `scope` (`facts`, `constraints`, `prefs`, `persona`).
+- `tags` (array) for fine-grained querying.
+- `ttl_days`, `source`, `idempotency_key` as needed by your workflow.
+
+### Qdrant bootstrap / indexes
+
+`core/storage/qdrant_repository.py` ensures the collection exists and creates payload indexes for:
+
+- `org_id` (tenant index, `is_tenant=true`).
+- `agent_id`, `user_id`, `tags`, `scope`, `dedupe_hash`, `deleted`, `created_at`, `updated_at`.
+
+If you swap collections or vector sizes, adjust `core.collection` and rerun the bootstrap (`scripts/bootstrap_qdrant.py` or the container exec snippet in the “Command Matrix”).
+
 ## Local Development Workflow
 
 ```bash

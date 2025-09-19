@@ -2,6 +2,22 @@
 
 Memscend is a multi-tenant memory service that extracts durable memories with a remote LLM (OpenRouter), embeds them locally with Text Embeddings Inference (TEI), and stores them in Qdrant for fast semantic retrieval. It exposes the same core logic via an HTTP API (REST + streaming) and an MCP server so IDE/agent clients can plug in with minimal glue code.
 
+## Table of Contents
+- [Feature Highlights](#feature-highlights)
+- [Repository Layout](#repository-layout)
+- [Prerequisites](#prerequisites)
+- [Configuration](#configuration)
+- [Policy Playbooks](#policy-playbooks)
+- [Local Development Workflow](#local-development-workflow)
+- [API Overview](#api-overview)
+- [MCP Tools](#mcp-tools)
+- [Docker Compose Stack](#docker-compose-stack)
+- [Production Reverse Proxy](#production-reverse-proxy)
+- [Testing](#testing)
+- [Deployment Checklist (VPS)](#deployment-checklist-vps)
+- [Troubleshooting](#troubleshooting)
+- [Further Reading](#further-reading)
+
 ## Feature Highlights
 
 - **Tenant-aware ingestion & search** – strict `org_id`/`agent_id` scoping, idempotent writes, optional dedupe, and time-decayed rankings.

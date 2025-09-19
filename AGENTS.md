@@ -52,6 +52,7 @@
 - Startup/shutdown hooks call `MemoryCore.startup/shutdown`; avoid blocking operations inside tool handlers.
 - Register server via MCP client config pointing at `http://127.0.0.1:8050`. SSE endpoint `/sse` (heartbeat 15 s); set `MCP_TRANSPORT=stdio` or `streamable_http` when using alternative transports.
 - Recommended headers for HTTP/SSE clients that can set them: `X-Memscend-Org`, `X-Memscend-Agent`, `X-Memscend-User`.
+- LLM normalization prompt (OpenRouter) expects JSON array objects `{memory, scope, confidence, language, skip}`. Enforce schema adherence; treat `skip=true` as discard. Malformed JSON triggers fallback to raw text—assume no guarantees about cleanup when upstream models misbehave.
 
 ## Testing Doctrine
 - Pytest structure: `tests/unit/` (isolated with stubs), `tests/integration/` (FastAPI TestClient + patched core).

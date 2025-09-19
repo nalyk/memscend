@@ -94,6 +94,12 @@ All tools emit rich JSON that mirrors the HTTP gateway schema. Clients also gain
 
 Tip: when using browser-based SSE transports, configure headers (e.g. `X-Memscend-Org`, `X-Memscend-Agent`, `X-Memscend-User`) through your client’s transport settings to avoid repeated prompts.
 
+### LLM normalization
+
+- When `core.write.normalize_with_llm` is enabled, snippets are sent to OpenRouter with a structured extraction prompt. The model must reply with a JSON array of entries `{memory, scope, confidence, language, skip}`. Entries flagged with `skip=true` are discarded; remaining `memory` strings populate the pipeline.
+- If the model cannot follow the schema (malformed JSON, empty list) we fall back to the raw text so ingest never stalls.
+- Provide multilingual-friendly models for best results; otherwise disable normalization to avoid lossy rewriting.
+
 Launch with `uv run python -m mcp_gw.server` and register the local server inside your MCP-compatible client. The server binds to `0.0.0.0:8050` and exposes an SSE endpoint at `/sse` (keep-alive pings every 15 s). Set `MCP_TRANSPORT=stdio` or `MCP_TRANSPORT=streamable_http` to switch transports without code changes.
 
 ## Docker Compose Stack

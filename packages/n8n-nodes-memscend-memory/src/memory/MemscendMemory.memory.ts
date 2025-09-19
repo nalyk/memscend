@@ -1,10 +1,22 @@
 import axios, { AxiosInstance } from 'axios';
-import type {
-    IExecuteFunctions,
-    IMemory,
-    IMemoryData,
-    IMemoryUpdate,
-} from 'n8n-workflow';
+import type { IExecuteFunctions } from 'n8n-workflow';
+
+type MemoryData = {
+    history: Array<{ role: string; content: string }>;
+};
+
+type MemoryUpdate = {
+    input?: string | string[];
+    output?: string | string[];
+    metadata?: Record<string, unknown>;
+};
+
+interface IMemoryNode {
+    init(this: IExecuteFunctions): Promise<void>;
+    loadMemoryVariables(): Promise<MemoryData>;
+    saveContext(data: MemoryUpdate): Promise<void>;
+    clear(): Promise<void>;
+}
 
 interface MemscendCredentials {
     baseUrl: string;
@@ -26,7 +38,7 @@ interface MemoryItem {
     };
 }
 
-export class MemscendMemory implements IMemory {
+export class MemscendMemory implements IMemoryNode {
     description = {
         displayName: 'Memscend Memory',
         name: 'memscendMemory',
@@ -110,7 +122,7 @@ export class MemscendMemory implements IMemory {
         });
     }
 
-    async loadMemoryVariables(): Promise<IMemoryData> {
+    async loadMemoryVariables(): Promise<MemoryData> {
         if (!this.client) throw new Error('Memscend memory not initialised');
         const params = {
             limit: this.maxItems,
@@ -125,7 +137,7 @@ export class MemscendMemory implements IMemory {
         return { history };
     }
 
-    async saveContext(data: IMemoryUpdate): Promise<void> {
+    async saveContext(data: MemoryUpdate): Promise<void> {
         if (!this.client) throw new Error('Memscend memory not initialised');
         if (!data.output) return;
         const userId = this.credentials?.userId ?? (data?.metadata?.userId as string | undefined) ?? 'default-user';

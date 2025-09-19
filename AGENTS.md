@@ -9,7 +9,7 @@
 - `core/services.py` – orchestrates add/search/update/delete, resolves tenant overrides, manages Qdrant repositories. Touch with extreme care; preserve dedupe + time-decay logic.
 - `core/clients/` – `openrouter.py` (LLM normalization), `tei.py` (embeddings). Respect retry/backoff semantics; MCP runs with `transport="sse"` and serves `/sse`.
 - TEI client auto-falls back to deterministic embeddings when TEI is unreachable; OpenRouter client returns raw snippets on failure but keep normalization enabled when keys work.
-- `core/storage/qdrant_repository.py` – Qdrant CRUD layer; ensure payloads include `text`, `dedupe_hash`, timestamps.
+- `core/storage/qdrant_repository.py` – Qdrant CRUD layer + recency reranker. Maintains required payload indexes (org_id with `is_tenant=true`, agent/user IDs, tags, dedupe hash, created/updated timestamps, deleted flag) and blends Qdrant formula scoring with `apply_time_decay` fallback. Touch `_ensure_payload_indexes` or `search_with_reranker` only with extreme care.
 - `core/security.py` – shared-secret/JWT validation and tenancy reconciliation.
 - `http_gw/app.py` – FastAPI routes mapping HTTP verbs to `MemoryCore`; handles SSE/NDJSON streaming.
 - `mcp_gw/server.py` – FastMCP tool definitions mirroring HTTP behaviors.
@@ -24,10 +24,25 @@
 - Full local stack sans nginx: `docker compose -f infra/docker-compose.yaml --env-file .env up --build tei-embed qdrant http-gw mcp-gw`
 - Optional proxy: `docker compose -f infra/docker-compose.yaml --env-file .env --profile bundled-nginx up nginx`
 - Core bootstrap (creates collection): `uv run python scripts/bootstrap_qdrant.py`
+- Post-deploy bootstrap (inside running container, provisions payload indexes):
+  ```bash
+  docker compose -f infra/docker-compose.yaml --env-file .env exec http-gw python - <<'PY'
+  import asyncio
+  from core import MemoryCore, load_settings
+
+  async def main():
+      settings = load_settings()
+      core = MemoryCore(settings)
+      await core.startup()
+      await core.shutdown()
+
+  asyncio.run(main())
+  PY
+  ```
 
 ## Configuration & Secrets
 - `.env` supplies `OPENROUTER_API_KEY`, `HUGGING_FACE_HUB_TOKEN`, `MEMORY_SHARED_SECRET`.
-- TEI container uses image `ghcr.io/huggingface/text-embeddings-inference:cpu-1.8` and expects `HF_TOKEN`; license acceptance for EmbeddingGemma is mandatory.
+- TEI container uses image `ghcr.io/huggingface/text-embeddings-inference:cpu-1.8` and expects `HF_TOKEN`; license acceptance for EmbeddingGemma is mandatory. Keep TEI internal (no host port publishing) and reach it from other services via `http://tei-embed:80`.
 - Environment overrides: `TEI_BASE_URL`, `QDRANT_URL`, `OPENROUTER_BASE_URL`, `MEMORY_CONFIG_FILE`.
 - Tenancy config lives under `core.organisations` in YAML; agent overrides inherit org values.
 - Embedding dims allowed: `{128, 256, 512, 768}`. Changing dims requires new Qdrant collection.
@@ -66,12 +81,16 @@
 4. `python -m mcp_gw.server --host 0.0.0.0 --port 8050`
 5. Host-level Nginx proxies `/api/` ➜ 8080, `/mcp/` ➜ 8050 (TLS enforced externally).
 6. Keep `bundled-nginx` disabled in production.
+7. Run the post-deploy bootstrap snippet (see Command Matrix) to provision Qdrant payload indexes before serving traffic.
+
+TEI and Qdrant should remain internal-only in staging/prod; do not publish their container ports on the host, rely on http-gw/mcp-gw as the public interface.
 
 ## High-Risk Areas & Invariants
 - Never loosen tenancy checks (`core/security.py`, `http_gw/app.py`, `mcp_gw/server.py`).
 - Preserve dedupe hash computation (`core/utils.py`) and ensure upserts always include `dedupe_hash` in payload.
 - Do not modify TEI/OpenRouter retry policies without updating failure modes in docs/runbook.
 - Any change to vector size or collection names must propagate to `config`, compose env vars, and migration scripts.
+- Leave Qdrant payload index bootstrapping and reranker fallbacks intact; removing them breaks tenancy isolation and recency scoring.
 - Observability intentionally absent; avoid introducing logging dependencies unless requirement changes.
 
 ## Reference Docs

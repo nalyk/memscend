@@ -20,6 +20,8 @@ except ImportError:  # pragma: no cover
         Filter=lambda *args, **kwargs: None,
         PointIdsList=lambda *args, **kwargs: None,
         UpdateStatus=SimpleNamespace(COMPLETED="completed"),
+        OrderBy=lambda *args, **kwargs: None,
+        OrderByKind=SimpleNamespace(ASC="asc", DESC="desc"),
     )
 
 from ..models import MemoryHit, MemoryPayload, MemoryRecord
@@ -128,6 +130,15 @@ class QdrantRepository:
         )
         return operation.status == rest.UpdateStatus.COMPLETED
 
+    async def delete_many(self, memory_ids: List[str]) -> bool:
+        if not memory_ids:
+            return True
+        operation = await self._client.delete(
+            collection_name=self._collection,
+            points_selector=rest.PointIdsList(points=memory_ids),
+        )
+        return operation.status == rest.UpdateStatus.COMPLETED
+
     async def set_payload(self, record: MemoryRecord) -> None:
         payload = record.payload.dict()
         payload.setdefault("text", record.text)
@@ -167,3 +178,95 @@ class QdrantRepository:
         payload = MemoryPayload.model_validate(point.payload)
         text = payload.text
         return MemoryRecord(id=str(point.id), text=text, payload=payload)
+
+    async def get_many(self, memory_ids: List[str]) -> List[MemoryRecord]:
+        if not memory_ids:
+            return []
+        response = await self._client.retrieve(
+            collection_name=self._collection,
+            ids=memory_ids,
+            with_vectors=False,
+            with_payload=True,
+        )
+        records: List[MemoryRecord] = []
+        for point in response:
+            payload = MemoryPayload.model_validate(point.payload)
+            text = payload.text
+            records.append(MemoryRecord(id=str(point.id), text=text, payload=payload))
+        return records
+
+    async def list_recent(
+        self,
+        org_id: str,
+        agent_id: str,
+        *,
+        limit: int,
+        include_deleted: bool = False,
+    ) -> List[MemoryRecord]:
+        conditions: List[rest.FieldCondition] = [
+            rest.FieldCondition(key="org_id", match=rest.MatchValue(value=org_id)),
+            rest.FieldCondition(key="agent_id", match=rest.MatchValue(value=agent_id)),
+        ]
+        if not include_deleted:
+            conditions.append(rest.FieldCondition(key="deleted", match=rest.MatchValue(value=False)))
+
+        order_by = None
+        if hasattr(rest, "OrderBy") and hasattr(rest, "OrderByKind"):
+            order_by = [rest.OrderBy(key="updated_at", direction=rest.OrderByKind.DESC)]
+
+        points, _ = await self._client.scroll(
+            collection_name=self._collection,
+            scroll_filter=rest.Filter(must=conditions),
+            limit=limit,
+            with_vectors=False,
+            with_payload=True,
+            order_by=order_by,
+        )
+
+        records: List[MemoryRecord] = []
+        for point in points:
+            payload = MemoryPayload.model_validate(point.payload)
+            text = payload.text
+            records.append(MemoryRecord(id=str(point.id), text=text, payload=payload))
+        return records
+
+    async def search_text(
+        self,
+        org_id: str,
+        agent_id: str,
+        query: str,
+        *,
+        limit: int,
+        include_deleted: bool = False,
+    ) -> List[MemoryRecord]:
+        needle = query.lower()
+        conditions: List[rest.FieldCondition] = [
+            rest.FieldCondition(key="org_id", match=rest.MatchValue(value=org_id)),
+            rest.FieldCondition(key="agent_id", match=rest.MatchValue(value=agent_id)),
+        ]
+        if not include_deleted:
+            conditions.append(rest.FieldCondition(key="deleted", match=rest.MatchValue(value=False)))
+
+        records: List[MemoryRecord] = []
+        offset = None
+        while len(records) < limit:
+            points, offset = await self._client.scroll(
+                collection_name=self._collection,
+                scroll_filter=rest.Filter(must=conditions),
+                offset=offset,
+                limit=100,
+                with_vectors=False,
+                with_payload=True,
+            )
+            if not points:
+                break
+            for point in points:
+                payload = MemoryPayload.model_validate(point.payload)
+                text = payload.text or ""
+                if needle in text.lower():
+                    records.append(MemoryRecord(id=str(point.id), text=text, payload=payload))
+                    if len(records) >= limit:
+                        break
+            if offset is None:
+                break
+        return records

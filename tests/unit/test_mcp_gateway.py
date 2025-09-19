@@ -56,6 +56,13 @@ async def test_capabilities_resource_reflects_settings() -> None:
     assert "sse" in resource.transports
 
 
+def test_to_list_response() -> None:
+    payload = _make_payload()
+    record = MemoryRecord(id="mem-123", text="hello", payload=payload)
+    response = server._to_list_response([record])  # type: ignore[attr-defined]
+    assert response.items[0].id == "mem-123"
+
+
 class _DummySession:
     def __init__(self, supports_elicitation: bool) -> None:
         self.supports_elicitation = supports_elicitation

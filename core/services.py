@@ -239,3 +239,66 @@ class MemoryCore:
             await repository.delete(memory_id)
         else:
             await repository.soft_delete(memory_id)
+
+    async def list(
+        self,
+        org_id: str,
+        agent_id: str,
+        *,
+        limit: int,
+        include_deleted: bool = False,
+    ) -> List[MemoryRecord]:
+        repository = await self._get_repository(self._resolve_overrides(org_id, agent_id))
+        records = await repository.list_recent(org_id, agent_id, limit=limit, include_deleted=include_deleted)
+        return records
+
+    async def get_many(
+        self,
+        org_id: str,
+        agent_id: str,
+        memory_ids: List[str],
+    ) -> List[MemoryRecord]:
+        repository = await self._get_repository(self._resolve_overrides(org_id, agent_id))
+        records = await repository.get_many(memory_ids)
+        filtered = [record for record in records if record.payload.org_id == org_id and record.payload.agent_id == agent_id]
+        return filtered
+
+    async def delete_many(
+        self,
+        org_id: str,
+        agent_id: str,
+        memory_ids: List[str],
+        *,
+        hard: bool = False,
+    ) -> None:
+        if not memory_ids:
+            return
+        repository = await self._get_repository(self._resolve_overrides(org_id, agent_id))
+        if hard:
+            await repository.delete_many(memory_ids)
+            return
+        records = await repository.get_many(memory_ids)
+        for record in records:
+            if record.payload.org_id == org_id and record.payload.agent_id == agent_id:
+                record.payload.deleted = True
+                record.payload.updated_at = datetime.utcnow()
+                await repository.set_payload(record)
+
+    async def search_text(
+        self,
+        org_id: str,
+        agent_id: str,
+        query: str,
+        *,
+        limit: int,
+        include_deleted: bool = False,
+    ) -> List[MemoryRecord]:
+        repository = await self._get_repository(self._resolve_overrides(org_id, agent_id))
+        records = await repository.search_text(
+            org_id,
+            agent_id,
+            query,
+            limit=limit,
+            include_deleted=include_deleted,
+        )
+        return records

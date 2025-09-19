@@ -43,7 +43,7 @@
 - `DELETE /api/v1/mem/{id}` with `?hard=true` for physical delete; defaults to soft delete.
 
 ## MCP Tooling
-- Tools: `add_memories`, `search_memory`, `update_memory`, `delete_memory` (structured responses match the HTTP gateway schema).
+- Tools: `add_memories`, `search_memory`, `update_memory`, `delete_memory`, `list_memories`, `open_memories`, `delete_memories`, `search_memory_text` (structured responses match the HTTP gateway schema).
 - Identity contract:
   - `org_id` + `agent_id` are mandatory for every tool call. Supply them explicitly or ensure the client can respond to elicitation prompts. Values persist per MCP session.
   - `user_id` is required for writes. Provide it up front; elicitation kicks in only if the client has advertised support.

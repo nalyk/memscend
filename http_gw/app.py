@@ -8,6 +8,7 @@ import orjson
 from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request, status
 from fastapi.responses import JSONResponse, StreamingResponse
 from sse_starlette.sse import EventSourceResponse
+from pydantic import BaseModel, Field
 
 from core import MemoryCore, load_settings
 from core.exceptions import AuthenticationError, AuthorizationError, MemoryServiceError, NotFoundError
@@ -215,3 +216,67 @@ async def delete_memory(
     except NotFoundError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     return JSONResponse(content={"ok": True})
+
+
+class IdsPayload(BaseModel):
+    ids: List[str] = Field(default_factory=list, min_items=1)
+
+
+class BatchDeletePayload(BaseModel):
+    ids: List[str] = Field(default_factory=list, min_items=1)
+    hard: bool = False
+
+
+def _record_to_dict(record) -> dict:
+    return {
+        "id": record.id,
+        "text": record.text,
+        "payload": record.payload.model_dump(mode="json"),
+    }
+
+
+@app.get("/api/v1/mem/list")
+async def list_memories(
+    limit: int = Query(default=20, ge=1, le=200),
+    include_deleted: bool = Query(default=False),
+    tenant: tuple[str, str] = Depends(tenancy_context),
+    core: MemoryCore = Depends(get_app_core),
+) -> JSONResponse:
+    org_id, agent_id = tenant
+    records = await core.list(org_id, agent_id, limit=limit, include_deleted=include_deleted)
+    return JSONResponse(content={"items": [_record_to_dict(record) for record in records]})
+
+
+@app.post("/api/v1/mem/open")
+async def open_memories(
+    payload: IdsPayload,
+    tenant: tuple[str, str] = Depends(tenancy_context),
+    core: MemoryCore = Depends(get_app_core),
+) -> JSONResponse:
+    org_id, agent_id = tenant
+    records = await core.get_many(org_id, agent_id, payload.ids)
+    return JSONResponse(content={"items": [_record_to_dict(record) for record in records]})
+
+
+@app.post("/api/v1/mem/delete/batch")
+async def delete_memories_batch(
+    payload: BatchDeletePayload,
+    tenant: tuple[str, str] = Depends(tenancy_context),
+    core: MemoryCore = Depends(get_app_core),
+) -> JSONResponse:
+    org_id, agent_id = tenant
+    await core.delete_many(org_id, agent_id, payload.ids, hard=payload.hard)
+    return JSONResponse(content={"ok": True, "ids": payload.ids, "hard": payload.hard})
+
+
+@app.get("/api/v1/mem/search/text")
+async def search_memories_text(
+    q: str = Query(..., alias="q"),
+    limit: int = Query(default=20, ge=1, le=200),
+    include_deleted: bool = Query(default=False),
+    tenant: tuple[str, str] = Depends(tenancy_context),
+    core: MemoryCore = Depends(get_app_core),
+) -> JSONResponse:
+    org_id, agent_id = tenant
+    records = await core.search_text(org_id, agent_id, q, limit=limit, include_deleted=include_deleted)
+    return JSONResponse(content={"items": [_record_to_dict(record) for record in records]})

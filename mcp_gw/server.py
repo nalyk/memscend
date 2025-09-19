@@ -22,10 +22,12 @@ from .schemas import (
     AddMemoriesResponse,
     CapabilitiesResource,
     DeleteMemoryResponse,
+    BulkDeleteResponse,
     MemoryHitProtocol,
     MemoryHitView,
     MemoryItemView,
     MemoryRecordProtocol,
+    ListMemoriesResponse,
     SearchMemoryResponse,
     UpdateMemoryResponse,
 )
@@ -50,6 +52,10 @@ def _to_search_response(hits: Sequence[MemoryHitProtocol]) -> SearchMemoryRespon
 
 def _to_update_response(record: MemoryRecordProtocol) -> UpdateMemoryResponse:
     return UpdateMemoryResponse(record=MemoryItemView.from_record(record))
+
+
+def _to_list_response(records: Sequence[MemoryRecordProtocol]) -> ListMemoriesResponse:
+    return ListMemoriesResponse(items=[MemoryItemView.from_record(record) for record in records])
 
 
 @asynccontextmanager
@@ -351,6 +357,88 @@ async def delete_memory(
         )
         raise ToolError("memory not found for supplied identifiers") from exc
     return DeleteMemoryResponse(ok=True)
+
+
+@app.tool(
+    title="List Memories",
+    description="Return latest memories for this tenant (ordered by update time).",
+    structured_output=True,
+    annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True, destructiveHint=False),
+)
+async def list_memories(
+    ctx: Context,
+    org_id: Optional[str] = None,
+    agent_id: Optional[str] = None,
+    limit: int = 20,
+    include_deleted: bool = False,
+) -> ListMemoriesResponse:
+    org_id, agent_id = await _resolve_tenant(ctx, org_id, agent_id)
+    records = await _get_core().list(org_id, agent_id, limit=max(1, min(limit, 200)), include_deleted=include_deleted)
+    return _to_list_response(records)
+
+
+@app.tool(
+    title="Open Memories",
+    description="Fetch memories by their identifiers.",
+    structured_output=True,
+    annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True, destructiveHint=False),
+)
+async def open_memories(
+    ctx: Context,
+    memory_ids: List[str],
+    org_id: Optional[str] = None,
+    agent_id: Optional[str] = None,
+) -> ListMemoriesResponse:
+    if not memory_ids:
+        return ListMemoriesResponse(items=[])
+    org_id, agent_id = await _resolve_tenant(ctx, org_id, agent_id)
+    records = await _get_core().get_many(org_id, agent_id, memory_ids)
+    return _to_list_response(records)
+
+
+@app.tool(
+    title="Delete Memories",
+    description="Delete multiple memories at once (soft by default).",
+    structured_output=True,
+    annotations=ToolAnnotations(readOnlyHint=False, idempotentHint=False, destructiveHint=True),
+)
+async def delete_memories(
+    ctx: Context,
+    memory_ids: List[str],
+    org_id: Optional[str] = None,
+    agent_id: Optional[str] = None,
+    hard: bool = False,
+) -> BulkDeleteResponse:
+    if not memory_ids:
+        return BulkDeleteResponse(ok=True, ids=[], hard=hard)
+    org_id, agent_id = await _resolve_tenant(ctx, org_id, agent_id)
+    await _get_core().delete_many(org_id, agent_id, memory_ids, hard=hard)
+    return BulkDeleteResponse(ok=True, ids=memory_ids, hard=hard)
+
+
+@app.tool(
+    title="Search Memory Text",
+    description="Run a substring search against stored memories (non-semantic).",
+    structured_output=True,
+    annotations=ToolAnnotations(readOnlyHint=True, idempotentHint=True, destructiveHint=False),
+)
+async def search_memory_text(
+    ctx: Context,
+    query: str,
+    org_id: Optional[str] = None,
+    agent_id: Optional[str] = None,
+    limit: int = 20,
+    include_deleted: bool = False,
+) -> ListMemoriesResponse:
+    org_id, agent_id = await _resolve_tenant(ctx, org_id, agent_id)
+    records = await _get_core().search_text(
+        org_id,
+        agent_id,
+        query,
+        limit=max(1, min(limit, 200)),
+        include_deleted=include_deleted,
+    )
+    return _to_list_response(records)
 
 
 @app.resource(

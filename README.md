@@ -72,6 +72,10 @@ Once the services are live, authenticate with `Authorization: Bearer <MEMORY_SHA
 - `GET  /api/v1/mem/search/stream` – SSE stream (heartbeat every 20s).
 - `PATCH /api/v1/mem/{id}` – update text, tags, scope, TTL, soft-delete flag.
 - `DELETE /api/v1/mem/{id}` – soft delete by default, `?hard=true` for permanent removal.
+- `GET  /api/v1/mem/list` – list recent memories for the current tenant.
+- `GET  /api/v1/mem/search/text` – substring search across stored memory text.
+- `POST /api/v1/mem/open` – fetch memories by ID.
+- `POST /api/v1/mem/delete/batch` – delete multiple memories (soft or hard).
 
 All endpoints require tenancy headers plus shared-secret (or JWT, if configured).
 
@@ -83,6 +87,10 @@ The FastMCP server exposes structured tools (Pydantic responses) with context-aw
 - `search_memory(query, org_id?, agent_id?, user_id?, k?, scope?, tags?)`
 - `update_memory(memory_id, org_id?, agent_id?, text?, tags?, scope?, ttl_days?, deleted?)`
 - `delete_memory(memory_id, org_id?, agent_id?, hard?)`
+- `list_memories(org_id?, agent_id?, limit?, include_deleted?)`
+- `open_memories(memory_ids[], org_id?, agent_id?)`
+- `delete_memories(memory_ids[], org_id?, agent_id?, hard?)`
+- `search_memory_text(query, org_id?, agent_id?, limit?, include_deleted?)`
 
 All tools emit rich JSON that mirrors the HTTP gateway schema. Clients also gain access to the read-only resource `memscend://capabilities` for static defaults (scopes, vector size, transports).
 

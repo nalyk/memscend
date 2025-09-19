@@ -92,6 +92,20 @@ class DeleteMemoryResponse(BaseModel):
     reason: Optional[str] = None
 
 
+class ListMemoriesResponse(BaseModel):
+    """Structured response for listing or opening memories."""
+
+    items: List[MemoryItemView] = Field(default_factory=list)
+
+
+class BulkDeleteResponse(BaseModel):
+    """Structured response for batch deletion."""
+
+    ok: bool
+    ids: List[str] = Field(default_factory=list)
+    hard: bool = False
+
+
 class CapabilitiesResource(BaseModel):
     """Static capability metadata exposed as an MCP resource."""
 
